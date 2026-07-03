@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ta">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>Order Form | ஆர்டர் படிவம்</title>
+<meta name="theme-color" content="#FFC800">
+<link rel="icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Noto+Sans+Tamil:wght@500;700;800&family=Inter:wght@500;700;800;900&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+<style>
+:root{--yellow:#FFC800;--yellow-dark:#E6B400;--black:#111111;--red:#E63946;--green:#2BB673;--white:#fff;--gray:#F4F4F4;--gray-dark:#7A7A7A;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Inter','Noto Sans Tamil',sans-serif;background:var(--gray);min-height:100vh;}
+.ta{font-family:'Noto Sans Tamil','Baloo 2',sans-serif;}
+header{background:var(--black);padding:26px 20px 40px;position:relative;overflow:hidden;}
+header::after{content:'';position:absolute;right:-40px;top:-40px;width:160px;height:160px;background:var(--yellow);transform:rotate(45deg);clip-path:polygon(50% 0%,100% 0%,100% 100%);}
+header h1{color:var(--yellow);font-family:'Baloo 2',sans-serif;font-size:24px;position:relative;z-index:2;}
+header p{color:#bbb;font-size:12px;margin-top:4px;position:relative;z-index:2;}
+.card{background:var(--white);margin:-24px 16px 16px;border-radius:18px;padding:20px;box-shadow:0 8px 24px rgba(0,0,0,.12);position:relative;z-index:3;}
+.field{margin-bottom:14px;}
+.field label{font-size:12px;font-weight:700;color:var(--gray-dark);display:block;margin-bottom:5px;}
+.field input,.field textarea{width:100%;padding:12px;border-radius:10px;border:1.5px solid #ddd;font-size:14px;background:var(--gray);}
+.field input:focus,.field textarea:focus{outline:none;border-color:var(--yellow-dark);}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.btn{width:100%;background:var(--black);color:var(--yellow);border:none;padding:15px;border-radius:12px;font-weight:800;font-size:16px;margin-top:6px;}
+.lang-toggle{position:absolute;top:16px;right:16px;background:var(--yellow);color:var(--black);border:none;padding:6px 12px;border-radius:20px;font-weight:800;font-size:11px;z-index:5;}
+.success{display:none;text-align:center;padding:30px 10px;}
+.success .ico{font-size:56px;}
+.success h2{margin:10px 0 6px;color:var(--green);}
+.success p{color:var(--gray-dark);font-size:13px;}
+.wa-btn{background:var(--green);color:#fff;margin-top:14px;}
+</style>
+</head>
+<body>
+<header>
+  <button class="lang-toggle" onclick="toggleLang()" id="langBtn">English</button>
+  <h1 id="hTitle">🥚 ஆர்டர் படிவம்</h1>
+  <p id="hSub">Egg Order Form</p>
+</header>
+
+<div class="card" id="formCard">
+  <div class="field"><label id="l1">Name</label><input id="f_name"></div>
+  <div class="two-col">
+    <div class="field"><label id="l2">Contact Number</label><input id="f_contact" type="tel" maxlength="10"></div>
+    <div class="field"><label id="l3">WhatsApp Number</label><input id="f_whatsapp" type="tel" maxlength="10"></div>
+  </div>
+  <div class="two-col">
+    <div class="field"><label id="l4">Quantity</label><input id="f_qty" type="number"></div>
+    <div class="field"><label id="l5">Date</label><input id="f_date" type="date"></div>
+  </div>
+  <div class="field"><label id="l6">Price (₹)</label><input id="f_price" type="number" step="0.01"></div>
+  <div class="field"><label id="l7">Note</label><textarea id="f_note" rows="2"></textarea></div>
+  <button class="btn" onclick="submitOrder()" id="submitBtn">Submit</button>
+</div>
+
+<div class="card success" id="successCard">
+  <div class="ico">✅</div>
+  <h2 id="sTitle">Order Submitted!</h2>
+  <p id="sSub">We'll contact you shortly. Thank you!</p>
+  <button class="btn wa-btn" onclick="shareWA()" id="waShareBtn">💬 Share on WhatsApp</button>
+</div>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyDO190yq5j5dhqwB_UzKfinVcOvacD7NcI",
+  authDomain: "egg-trading-2dd61.firebaseapp.com",
+  databaseURL: "https://egg-trading-2dd61-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "egg-trading-2dd61",
+  storageBucket: "egg-trading-2dd61.firebasestorage.app",
+  messagingSenderId: "775524815261",
+  appId: "1:775524815261:web:dc2cea55b5069259571f74"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+/* Fill these in after creating a free EmailJS account (emailjs.com) */
+const EMAILJS_PUBLIC_KEY = "";   // e.g. "AbCdEfGhIj12345"
+const EMAILJS_SERVICE_ID = "";   // e.g. "service_xxxx"
+const EMAILJS_TEMPLATE_ID = "";  // e.g. "template_xxxx"
+if(EMAILJS_PUBLIC_KEY){ emailjs.init(EMAILJS_PUBLIC_KEY); }
+
+const L = {
+  ta:{title:"🥚 ஆர்டர் படிவம்", sub:"Egg Order Form", l1:"பெயர்", l2:"தொடர்பு எண்", l3:"வாட்ஸ்அப் எண்",
+    l4:"அளவு", l5:"தேதி", l6:"விலை (₹)", l7:"குறிப்பு", submit:"சமர்ப்பிக்கவும்",
+    sTitle:"ஆர்டர் சமர்ப்பிக்கப்பட்டது!", sSub:"விரைவில் தொடர்பு கொள்வோம். நன்றி!", wa:"💬 வாட்ஸ்அப்பில் பகிரவும்",
+    needName:"பெயரை உள்ளிடவும்"},
+  en:{title:"🥚 Order Form", sub:"Egg Order Form", l1:"Name", l2:"Contact Number", l3:"WhatsApp Number",
+    l4:"Quantity", l5:"Date", l6:"Price (₹)", l7:"Note", submit:"Submit",
+    sTitle:"Order Submitted!", sSub:"We'll contact you shortly. Thank you!", wa:"💬 Share on WhatsApp",
+    needName:"Please enter your name"}
+};
+let lang = localStorage.getItem('egg_order_lang') || 'ta';
+function applyLang(){
+  const t = L[lang];
+  hTitle.textContent=t.title; hSub.textContent=t.sub;
+  l1.textContent=t.l1; l2.textContent=t.l2; l3.textContent=t.l3; l4.textContent=t.l4;
+  l5.textContent=t.l5; l6.textContent=t.l6; l7.textContent=t.l7;
+  submitBtn.textContent=t.submit; sTitle.textContent=t.sTitle; sSub.textContent=t.sSub;
+  waShareBtn.textContent=t.wa;
+  langBtn.textContent = lang==='ta' ? 'English':'தமிழ்';
+}
+function toggleLang(){ lang = lang==='ta'?'en':'ta'; localStorage.setItem('egg_order_lang',lang); applyLang(); }
+applyLang();
+f_date.value = new Date().toISOString().split('T')[0];
+
+let lastOrder = null;
+function submitOrder(){
+  const name = f_name.value.trim();
+  if(!name){ alert(L[lang].needName); return; }
+  const data = {
+    name, contact:f_contact.value.trim(), whatsapp:f_whatsapp.value.trim(),
+    qty:Number(f_qty.value||0), date:f_date.value, price:Number(f_price.value||0),
+    note:f_note.value.trim(), status:'new', createdAt: Date.now()
+  };
+  db.ref('orders').push(data).then(()=>{
+    lastOrder = data;
+    formCard.style.display='none';
+    successCard.style.display='block';
+    if(EMAILJS_PUBLIC_KEY && EMAILJS_SERVICE_ID && EMAILJS_TEMPLATE_ID){
+      emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+        to_email:"ramesh@sramesh.in", customer_name:data.name, contact:data.contact,
+        qty:data.qty, price:data.price, date:data.date, note:data.note
+      }).catch(()=>{});
+    }
+  });
+}
+function shareWA(){
+  if(!lastOrder) return;
+  const msg = lang==='ta'
+    ? `என் ஆர்டர்: ${lastOrder.name}, ${lastOrder.qty} முட்டைகள், ₹${lastOrder.price}, தேதி ${lastOrder.date}`
+    : `My order: ${lastOrder.name}, ${lastOrder.qty} eggs, ₹${lastOrder.price}, date ${lastOrder.date}`;
+  window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`,'_blank');
+}
+</script>
+</body>
+</html>
