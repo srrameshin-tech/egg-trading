@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="ta">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>Egg Trading | முட்டை வர்த்தகம்</title>
+<meta name="theme-color" content="#FFC800">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Noto+Sans+Tamil:wght@500;700;800&family=Inter:wght@500;700;800;900&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<style>
+:root{
+  --yellow:#FFC800;
+  --yellow-dark:#E6B400;
+  --black:#111111;
+  --red:#E63946;
+  --green:#2BB673;
+  --white:#FFFFFF;
+  --gray:#F4F4F4;
+  --gray-dark:#7A7A7A;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{
+  font-family:'Inter','Noto Sans Tamil',sans-serif;
+  background:var(--gray);
+  color:var(--black);
+  padding-bottom:78px;
+  min-height:100vh;
+  overflow-x:hidden;
+}
+.ta{font-family:'Noto Sans Tamil','Baloo 2',sans-serif;}
+h1,h2,h3,.display{font-family:'Baloo 2','Noto Sans Tamil',sans-serif;}
+
+/* ---------- HEADER ---------- */
+header.topbar{
+  background:var(--black);
+  color:var(--white);
+  padding:16px 16px 34px 16px;
+  position:relative;
+  overflow:hidden;
+}
+header.topbar::after{
+  content:'';
+  position:absolute;
+  right:-40px;top:-40px;
+  width:160px;height:160px;
+  background:var(--yellow);
+  transform:rotate(45deg);
+  clip-path:polygon(50% 0%, 100% 0%, 100% 100%);
+}
+.topbar-row{display:flex;justify-content:space-between;align-items:center;position:relative;z-index:2;}
+.brand{display:flex;align-items:center;gap:10px;}
+.brand-egg{font-size:28px;}
+.brand-text h1{font-size:20px;font-weight:800;color:var(--yellow);line-height:1.1;}
+.brand-text span{font-size:11px;color:#ccc;}
+.live-dot{width:9px;height:9px;border-radius:50%;background:var(--green);display:inline-block;margin-right:5px;animation:pulse 1.4s infinite;}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(43,182,115,.6);}70%{box-shadow:0 0 0 8px rgba(43,182,115,0);}100%{box-shadow:0 0 0 0 rgba(43,182,115,0);}}
+.livewrap{font-size:11px;color:#ddd;display:flex;align-items:center;margin-top:4px;}
+.lang-toggle{
+  background:var(--yellow);color:var(--black);border:none;
+  padding:7px 12px;border-radius:20px;font-weight:800;font-size:12px;
+}
+.logout-btn{background:none;border:1px solid #555;color:#ccc;padding:6px 10px;border-radius:16px;font-size:11px;margin-left:6px;}
+
+/* ---------- STOCK TRAY (signature element) ---------- */
+.tray-card{
+  background:var(--white);
+  margin:-24px 16px 14px 16px;
+  border-radius:18px;
+  padding:16px;
+  box-shadow:0 8px 24px rgba(0,0,0,.12);
+  position:relative;z-index:3;
+}
+.tray-title{font-size:12px;color:var(--gray-dark);font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
+.tray-count{font-size:34px;font-weight:900;color:var(--black);margin:2px 0 10px 0;}
+.tray-count span{font-size:14px;color:var(--gray-dark);font-weight:600;}
+.tray-grid{display:grid;grid-template-columns:repeat(10,1fr);gap:4px;}
+.egg-cell{width:100%;padding-top:120%;border-radius:50%/60%;position:relative;background:var(--gray);border:2px solid #e2e2e2;}
+.egg-cell.filled{background:var(--yellow);border-color:var(--yellow-dark);}
+.tray-stats{display:flex;justify-content:space-between;margin-top:12px;gap:8px;}
+.tray-stat{flex:1;text-align:center;background:var(--gray);border-radius:10px;padding:8px 4px;}
+.tray-stat b{display:block;font-size:16px;}
+.tray-stat.pend b{color:var(--red);}
+.tray-stat.paid b{color:var(--green);}
+.tray-stat small{font-size:10px;color:var(--gray-dark);}
+
+/* ---------- GENERIC ---------- */
+.container{padding:0 16px;}
+.section-title{font-size:15px;font-weight:800;margin:18px 0 10px;display:flex;justify-content:space-between;align-items:center;}
+.card{background:var(--white);border-radius:14px;padding:14px;margin-bottom:10px;box-shadow:0 2px 8px rgba(0,0,0,.06);position:relative;}
+.card.disabled{opacity:.5;}
+.row-between{display:flex;justify-content:space-between;align-items:flex-start;}
+.name{font-weight:800;font-size:15px;}
+.sub{font-size:12px;color:var(--gray-dark);margin-top:2px;}
+.badge{font-size:10px;font-weight:800;padding:3px 8px;border-radius:10px;display:inline-block;}
+.badge.paid{background:rgba(43,182,115,.15);color:var(--green);}
+.badge.pending{background:rgba(230,57,70,.15);color:var(--red);}
+.badge.disabled{background:#eee;color:#999;}
+.meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px;font-size:12px;}
+.meta-grid div span{display:block;color:var(--gray-dark);font-size:10px;}
+.actions{display:flex;gap:8px;margin-top:10px;}
+.actions button{flex:1;border:none;padding:8px;border-radius:8px;font-size:11px;font-weight:800;}
+.btn-edit{background:var(--black);color:var(--yellow);}
+.btn-wa{background:var(--green);color:#fff;}
+.btn-del{background:var(--red);color:#fff;}
+.btn-toggle{background:var(--gray);color:var(--black);}
+
+.fab{
+  position:fixed;bottom:90px;right:18px;
+  width:56px;height:56px;border-radius:50%;
+  background:var(--yellow);color:var(--black);
+  font-size:28px;border:none;box-shadow:0 6px 16px rgba(0,0,0,.3);
+  z-index:20;font-weight:900;
+}
+
+/* ---------- BOTTOM NAV ---------- */
+nav.tabbar{
+  position:fixed;bottom:0;left:0;right:0;
+  background:var(--black);
+  display:flex;justify-content:space-around;
+  padding:8px 4px 10px;
+  z-index:30;
+}
+nav.tabbar button{
+  background:none;border:none;color:#888;
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+  font-size:10px;font-weight:700;flex:1;
+}
+nav.tabbar button.active{color:var(--yellow);}
+nav.tabbar button .ico{font-size:19px;}
+
+/* ---------- MODAL / FORM ---------- */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:100;display:none;align-items:flex-end;}
+.overlay.show{display:flex;}
+.sheet{
+  background:#fff;width:100%;max-height:90vh;overflow-y:auto;
+  border-radius:20px 20px 0 0;padding:18px;animation:up .25s ease;
+}
+@keyframes up{from{transform:translateY(30px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+.sheet h3{font-size:17px;margin-bottom:14px;}
+.field{margin-bottom:12px;}
+.field label{font-size:12px;font-weight:700;color:var(--gray-dark);display:block;margin-bottom:4px;}
+.field input,.field select,.field textarea{
+  width:100%;padding:11px;border-radius:10px;border:1.5px solid #ddd;font-size:14px;background:var(--gray);
+}
+.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--yellow-dark);}
+.btn-primary{width:100%;background:var(--black);color:var(--yellow);border:none;padding:14px;border-radius:12px;font-weight:800;font-size:15px;margin-top:6px;}
+.btn-secondary{width:100%;background:none;border:none;color:var(--gray-dark);padding:10px;font-size:13px;margin-top:4px;}
+.close-x{position:absolute;top:14px;right:16px;font-size:20px;background:none;border:none;color:#999;}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+
+/* ---------- LOGIN ---------- */
+.login-screen{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--black);padding:30px;}
+.login-egg{font-size:60px;margin-bottom:10px;}
+.login-screen h1{color:var(--yellow);font-size:24px;margin-bottom:4px;}
+.login-screen p{color:#aaa;font-size:12px;margin-bottom:24px;}
+.pin-box{display:flex;gap:10px;margin-bottom:18px;}
+.pin-box input{width:48px;height:56px;text-align:center;font-size:22px;border-radius:12px;border:none;background:#222;color:#fff;}
+.login-screen .btn-primary{background:var(--yellow);color:var(--black);max-width:280px;}
+.err{color:var(--red);font-size:12px;margin-top:8px;height:14px;}
+
+.empty{text-align:center;padding:40px 10px;color:var(--gray-dark);font-size:13px;}
+.empty .ico{font-size:38px;display:block;margin-bottom:8px;}
+
+.tabs-inline{display:flex;gap:8px;margin-bottom:12px;overflow-x:auto;}
+.tabs-inline button{background:var(--white);border:none;padding:8px 14px;border-radius:20px;font-size:12px;font-weight:700;color:var(--gray-dark);white-space:nowrap;}
+.tabs-inline button.active{background:var(--black);color:var(--yellow);}
+
+.pill-status{font-size:10px;font-weight:800;padding:2px 8px;border-radius:8px;}
+.pill-new{background:rgba(255,200,0,.2);color:#946f00;}
+.pill-done{background:rgba(43,182,115,.15);color:var(--green);}
+</style>
+</head>
+<body>
+
+<!-- ================= LOGIN ================= -->
+<div id="loginScreen" class="login-screen">
+  <div class="login-egg">🥚</div>
+  <h1 class="ta">முட்டை வர்த்தகம்</h1>
+  <p id="loginSub">Egg Trading Manager</p>
+  <div class="pin-box">
+    <input type="password" maxlength="1" inputmode="numeric" class="pinDigit">
+    <input type="password" maxlength="1" inputmode="numeric" class="pinDigit">
+    <input type="password" maxlength="1" inputmode="numeric" class="pinDigit">
+    <input type="password" maxlength="1" inputmode="numeric" class="pinDigit">
+  </div>
+  <div class="err" id="loginErr"></div>
+  <button class="btn-primary" onclick="tryLogin()" id="loginBtnTxt">Login</button>
+</div>
+
+<!-- ================= APP ================= -->
+<div id="app" style="display:none;">
+  <header class="topbar">
+    <div class="topbar-row">
+      <div class="brand">
+        <div class="brand-egg">🥚</div>
+        <div class="brand-text">
+          <h1 id="hdrTitle">Egg Trading</h1>
+          <span class="livewrap"><span class="live-dot"></span><span id="hdrLive">LIVE</span></span>
+        </div>
+      </div>
+      <div>
+        <button class="lang-toggle" onclick="toggleLang()" id="langBtn">தமிழ்</button>
+        <button class="logout-btn" onclick="logout()" id="logoutBtn">Exit</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- STOCK TRAY -->
+  <div class="tray-card">
+    <div class="tray-title" id="trayTitle">CURRENT STOCK</div>
+    <div class="tray-count"><span id="stockCount">0</span> <span id="stockUnit">eggs</span></div>
+    <div class="tray-grid" id="trayGrid"></div>
+    <div class="tray-stats">
+      <div class="tray-stat pend"><b id="purchasePendingAmt">₹0</b><small id="lblPurchPending">Purchase Pending</small></div>
+      <div class="tray-stat pend"><b id="salesPendingAmt">₹0</b><small id="lblSalesPending">Sales Pending</small></div>
+      <div class="tray-stat paid"><b id="profitAmt">₹0</b><small id="lblProfit">Est. Profit</small></div>
+    </div>
+  </div>
+
+  <div class="container">
+
+    <!-- ============ DASHBOARD TAB ============ -->
+    <div id="tab-dash" class="tabcontent">
+      <div class="section-title"><span id="dashRecentTitle">Recent Activity</span></div>
+      <div id="recentList"></div>
+    </div>
+
+    <!-- ============ PURCHASE TAB ============ -->
+    <div id="tab-purchase" class="tabcontent" style="display:none;">
+      <div class="section-title"><span id="purchaseTitle">Purchases</span></div>
+      <div id="purchaseList"></div>
+    </div>
+
+    <!-- ============ SALES TAB ============ -->
+    <div id="tab-sales" class="tabcontent" style="display:none;">
+      <div class="section-title"><span id="salesTitle">Sales</span></div>
+      <div id="salesList"></div>
+    </div>
+
+    <!-- ============ ORDERS TAB ============ -->
+    <div id="tab-orders" class="tabcontent" style="display:none;">
+      <div class="section-title">
+        <span id="ordersTitle">Orders</span>
+        <button class="lang-toggle" style="background:var(--green);color:#fff;" onclick="copyOrderLink()" id="shareLinkBtn">🔗 Link</button>
+      </div>
+      <div id="ordersList"></div>
+    </div>
+
+  </div>
+</div>
+
+<button class="fab" id="fabBtn" onclick="openAddModal()" style="display:none;">+</button>
+
+<nav class="tabbar" id="tabbar" style="display:none;">
+  <button class="active" onclick="switchTab('dash',this)"><span class="ico">📊</span><span id="navDash">Dashboard</span></button>
+  <button onclick="switchTab('purchase',this)"><span class="ico">🛒</span><span id="navPurchase">Purchase</span></button>
+  <button onclick="switchTab('sales',this)"><span class="ico">💰</span><span id="navSales">Sales</span></button>
+  <button onclick="switchTab('orders',this)"><span class="ico">📋</span><span id="navOrders">Orders</span></button>
+</nav>
+
+<!-- ================= MODAL: PURCHASE FORM ================= -->
+<div class="overlay" id="purchaseOverlay">
+  <div class="sheet">
+    <button class="close-x" onclick="closeModal('purchaseOverlay')">✕</button>
+    <h3 id="purchaseFormTitle">Add Purchase</h3>
+    <div class="field"><label id="pf_l1">Supplier Name</label><input id="pf_name" list="supplierList"><datalist id="supplierList"></datalist></div>
+    <div class="field"><label id="pf_l2">Contact Number</label><input id="pf_contact" type="tel" maxlength="10"></div>
+    <div class="two-col">
+      <div class="field"><label id="pf_l3">Purchase Rate (₹/unit)</label><input id="pf_rate" type="number" step="0.01"></div>
+      <div class="field"><label id="pf_l4">Quantity</label><input id="pf_qty" type="number"></div>
+    </div>
+    <div class="field"><label id="pf_l5">Purchase Date</label><input id="pf_date" type="date"></div>
+    <div class="two-col">
+      <div class="field"><label id="pf_l6">Paid Amount</label><input id="pf_paid" type="number" step="0.01" oninput="calcPurchasePending()"></div>
+      <div class="field"><label id="pf_l7">Paid Date</label><input id="pf_paiddate" type="date"></div>
+    </div>
+    <div class="field"><label id="pf_l8">Pending Payment (auto)</label><input id="pf_pending" type="number" readonly></div>
+    <div class="field"><label id="pf_l9">Reminder after (days)</label><input id="pf_reminderdays" type="number" value="7"></div>
+    <button class="btn-primary" onclick="savePurchase()" id="pf_save">Save Purchase</button>
+    <button class="btn-secondary" onclick="closeModal('purchaseOverlay')" id="pf_cancel">Cancel</button>
+  </div>
+</div>
+
+<!-- ================= MODAL: SALES FORM ================= -->
+<div class="overlay" id="salesOverlay">
+  <div class="sheet">
+    <button class="close-x" onclick="closeModal('salesOverlay')">✕</button>
+    <h3 id="salesFormTitle">Add Sale</h3>
+    <div class="field"><label id="sf_l1">Customer Name</label><input id="sf_name" list="customerList"><datalist id="customerList"></datalist></div>
+    <div class="field"><label id="sf_l2">Contact Number</label><input id="sf_contact" type="tel" maxlength="10"></div>
+    <div class="two-col">
+      <div class="field"><label id="sf_l3">Sales Date</label><input id="sf_date" type="date"></div>
+      <div class="field"><label id="sf_l4">Quantity</label><input id="sf_qty" type="number" oninput="calcSalesPending()"></div>
+    </div>
+    <div class="two-col">
+      <div class="field"><label id="sf_l4b">Sale Rate (₹/unit)</label><input id="sf_rate" type="number" step="0.01" oninput="calcSalesPending()"></div>
+      <div class="field"><label id="sf_l5">Paid Amount</label><input id="sf_paid" type="number" step="0.01" oninput="calcSalesPending()"></div>
+    </div>
+    <div class="field"><label id="sf_l6">Pending Amount (auto)</label><input id="sf_pending" type="number" readonly></div>
+    <div class="field"><label id="sf_l7">Notes (optional)</label><textarea id="sf_note" rows="2"></textarea></div>
+    <button class="btn-primary" onclick="saveSale()" id="sf_save">Save Sale</button>
+    <button class="btn-secondary" onclick="closeModal('salesOverlay')" id="sf_cancel">Cancel</button>
+  </div>
+</div>
+
+<datalist id="dummy"></datalist>
+
+<script>
+/* ============================================================
+   FIREBASE
+=============================================================*/
+const firebaseConfig = {
+  apiKey: "AIzaSyDO190yq5j5dhqwB_UzKfinVcOvacD7NcI",
+  authDomain: "egg-trading-2dd61.firebaseapp.com",
+  databaseURL: "https://egg-trading-2dd61-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "egg-trading-2dd61",
+  storageBucket: "egg-trading-2dd61.firebasestorage.app",
+  messagingSenderId: "775524815261",
+  appId: "1:775524815261:web:dc2cea55b5069259571f74"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+/* ============================================================
+   TRANSLATIONS
+=============================================================*/
+const T = {
+  en:{
+    title:"Egg Trading", live:"LIVE", stock:"CURRENT STOCK", eggs:"eggs",
+    purchPending:"Purchase Pending", salesPending:"Sales Pending", profit:"Est. Profit",
+    navDash:"Dashboard", navPurchase:"Purchase", navSales:"Sales", navOrders:"Orders",
+    recent:"Recent Activity", purchases:"Purchases", sales:"Sales", orders:"Orders",
+    addPurchase:"Add Purchase", editPurchase:"Edit Purchase",
+    addSale:"Add Sale", editSale:"Edit Sale",
+    l1:"Supplier Name", l2:"Contact Number", l3:"Purchase Rate (₹/unit)", l4:"Quantity",
+    l5:"Purchase Date", l6:"Paid Amount", l7:"Paid Date", l8:"Pending Payment (auto)",
+    l9:"Reminder after (days)", save:"Save Purchase", cancel:"Cancel",
+    sl1:"Customer Name", sl2:"Contact Number", sl3:"Sales Date", sl4:"Quantity",
+    sl4b:"Sale Rate (₹/unit)", sl5:"Paid Amount", sl6:"Pending Amount (auto)", sl7:"Notes (optional)",
+    saveSale:"Save Sale", logout:"Exit", link:"Link",
+    edit:"Edit", wa:"WhatsApp", del:"Delete", enable:"Enable", disable:"Disable",
+    emptyPurchase:"No purchases yet. Tap + to add.",
+    emptySales:"No sales yet. Tap + to add.",
+    emptyOrders:"No orders received yet.",
+    paid:"Paid", pending:"Pending", disabled:"Disabled",
+    loginSub:"Egg Trading Manager", loginBtn:"Login", loginErr:"Wrong PIN",
+    confirmDel:"Delete this entry permanently?", confirmToggle:"Change status?",
+    thanksMsg: (name,qty,amt)=>`Hi ${name}! 🥚 Thanks for your purchase of ${qty} eggs (₹${amt}). We appreciate your business! - Egg Trading`,
+    reminderMsg:(name,amt)=>`Hi ${name}, this is a gentle reminder that ₹${amt} is pending for your egg purchase. Please clear at your convenience. Thank you!`,
+    linkCopied:"Order form link copied!"
+  },
+  ta:{
+    title:"முட்டை வர்த்தகம்", live:"லைவ்", stock:"தற்போதைய இருப்பு", eggs:"முட்டைகள்",
+    purchPending:"கொள்முதல் நிலுவை", salesPending:"விற்பனை நிலுவை", profit:"மதிப்பிடப்பட்ட லாபம்",
+    navDash:"டாஷ்போர்டு", navPurchase:"கொள்முதல்", navSales:"விற்பனை", navOrders:"ஆர்டர்கள்",
+    recent:"சமீபத்திய செயல்பாடு", purchases:"கொள்முதல்கள்", sales:"விற்பனைகள்", orders:"ஆர்டர்கள்",
+    addPurchase:"கொள்முதல் சேர்க்க", editPurchase:"கொள்முதல் திருத்த",
+    addSale:"விற்பனை சேர்க்க", editSale:"விற்பனை திருத்த",
+    l1:"சப்ளையர் பெயர்", l2:"தொடர்பு எண்", l3:"கொள்முதல் விலை (₹/யூனிட்)", l4:"அளவு",
+    l5:"கொள்முதல் தேதி", l6:"செலுத்திய தொகை", l7:"செலுத்திய தேதி", l8:"நிலுவைத் தொகை (auto)",
+    l9:"நினைவூட்டல் (நாட்கள்)", save:"கொள்முதலை சேமி", cancel:"ரத்து செய்",
+    sl1:"வாடிக்கையாளர் பெயர்", sl2:"தொடர்பு எண்", sl3:"விற்பனை தேதி", sl4:"அளவு",
+    sl4b:"விற்பனை விலை (₹/யூனிட்)", sl5:"செலுத்திய தொகை", sl6:"நிலுவைத் தொகை (auto)", sl7:"குறிப்பு (விருப்பம்)",
+    saveSale:"விற்பனையை சேமி", logout:"வெளியேறு", link:"லிங்க்",
+    edit:"திருத்து", wa:"வாட்ஸ்அப்", del:"நீக்கு", enable:"இயக்கு", disable:"முடக்கு",
+    emptyPurchase:"இன்னும் கொள்முதல் இல்லை. + அழுத்தவும்.",
+    emptySales:"இன்னும் விற்பனை இல்லை. + அழுத்தவும்.",
+    emptyOrders:"இன்னும் ஆர்டர் வரவில்லை.",
+    paid:"செலுத்தப்பட்டது", pending:"நிலுவை", disabled:"முடக்கப்பட்டது",
+    loginSub:"முட்டை வர்த்தக மேலாளர்", loginBtn:"உள்நுழை", loginErr:"தவறான PIN",
+    confirmDel:"இதை நிரந்தரமாக நீக்கவா?", confirmToggle:"நிலையை மாற்றவா?",
+    thanksMsg:(name,qty,amt)=>`வணக்கம் ${name}! 🥚 ${qty} முட்டைகள் (₹${amt}) வாங்கியதற்கு நன்றி! உங்கள் ஆதரவுக்கு நன்றி! - முட்டை வர்த்தகம்`,
+    reminderMsg:(name,amt)=>`வணக்கம் ${name}, ₹${amt} நிலுவையில் உள்ளது என்பதை அன்புடன் நினைவூட்டுகிறோம். சாத்தியமான போது செலுத்தவும். நன்றி!`,
+    linkCopied:"ஆர்டர் படிவ லிங்க் காபி ஆனது!"
+  }
+};
+let lang = localStorage.getItem('egg_lang') || 'ta';
+
+function applyLang(){
+  const t = T[lang];
+  document.getElementById('hdrTitle').textContent = t.title;
+  document.getElementById('hdrLive').textContent = t.live;
+  document.getElementById('trayTitle').textContent = t.stock;
+  document.getElementById('stockUnit').textContent = t.eggs;
+  document.getElementById('lblPurchPending').textContent = t.purchPending;
+  document.getElementById('lblSalesPending').textContent = t.salesPending;
+  document.getElementById('lblProfit').textContent = t.profit;
+  document.getElementById('navDash').textContent = t.navDash;
+  document.getElementById('navPurchase').textContent = t.navPurchase;
+  document.getElementById('navSales').textContent = t.navSales;
+  document.getElementById('navOrders').textContent = t.navOrders;
+  document.getElementById('dashRecentTitle').textContent = t.recent;
+  document.getElementById('purchaseTitle').textContent = t.purchases;
+  document.getElementById('salesTitle').textContent = t.sales;
+  document.getElementById('ordersTitle').textContent = t.orders;
+  document.getElementById('logoutBtn').textContent = t.logout;
+  document.getElementById('shareLinkBtn').textContent = '🔗 '+t.link;
+  document.getElementById('loginSub').textContent = t.loginSub;
+  document.getElementById('loginBtnTxt').textContent = t.loginBtn;
+  document.getElementById('langBtn').textContent = lang==='ta' ? 'English' : 'தமிழ்';
+  // purchase form
+  document.getElementById('pf_l1').textContent=t.l1; document.getElementById('pf_l2').textContent=t.l2;
+  document.getElementById('pf_l3').textContent=t.l3; document.getElementById('pf_l4').textContent=t.l4;
+  document.getElementById('pf_l5').textContent=t.l5; document.getElementById('pf_l6').textContent=t.l6;
+  document.getElementById('pf_l7').textContent=t.l7; document.getElementById('pf_l8').textContent=t.l8;
+  document.getElementById('pf_l9').textContent=t.l9; document.getElementById('pf_save').textContent=t.save;
+  document.getElementById('pf_cancel').textContent=t.cancel;
+  // sales form
+  document.getElementById('sf_l1').textContent=t.sl1; document.getElementById('sf_l2').textContent=t.sl2;
+  document.getElementById('sf_l3').textContent=t.sl3; document.getElementById('sf_l4').textContent=t.sl4;
+  document.getElementById('sf_l4b').textContent=t.sl4b; document.getElementById('sf_l5').textContent=t.sl5;
+  document.getElementById('sf_l6').textContent=t.sl6; document.getElementById('sf_l7').textContent=t.sl7;
+  document.getElementById('sf_save').textContent=t.saveSale; document.getElementById('sf_cancel').textContent=t.cancel;
+  renderAll();
+}
+function toggleLang(){
+  lang = lang==='ta' ? 'en' : 'ta';
+  localStorage.setItem('egg_lang', lang);
+  applyLang();
+}
+
+/* ============================================================
+   LOGIN
+=============================================================*/
+const DEFAULT_PIN = "1973";
+const pinInputs = document.querySelectorAll('.pinDigit');
+pinInputs.forEach((inp,i)=>{
+  inp.addEventListener('input',()=>{
+    if(inp.value && i<pinInputs.length-1) pinInputs[i+1].focus();
+    if(pinInputs[pinInputs.length-1].value) tryLogin();
+  });
+});
+function tryLogin(){
+  const pin = Array.from(pinInputs).map(i=>i.value).join('');
+  db.ref('settings/pin').once('value').then(snap=>{
+    const savedPin = snap.exists() ? snap.val() : DEFAULT_PIN;
+    if(pin === savedPin){
+      sessionStorage.setItem('egg_auth','1');
+      showApp();
+    } else {
+      document.getElementById('loginErr').textContent = T[lang].loginErr;
+      pinInputs.forEach(i=>i.value='');
+      pinInputs[0].focus();
+    }
+  });
+}
+function logout(){
+  sessionStorage.removeItem('egg_auth');
+  location.reload();
+}
+function showApp(){
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('app').style.display='block';
+  document.getElementById('tabbar').style.display='flex';
+  document.getElementById('fabBtn').style.display='flex';
+  document.getElementById('fabBtn').style.alignItems='center';
+  document.getElementById('fabBtn').style.justifyContent='center';
+  applyLang();
+  listenData();
+}
+if(sessionStorage.getItem('egg_auth')==='1'){ showApp(); }
+
+/* ============================================================
+   TAB NAV
+=============================================================*/
+let currentTab='dash';
+function switchTab(tab, btn){
+  currentTab = tab;
+  document.querySelectorAll('.tabcontent').forEach(el=>el.style.display='none');
+  document.getElementById('tab-'+tab).style.display='block';
+  document.querySelectorAll('nav.tabbar button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('fabBtn').style.display = (tab==='dash' || tab==='orders') ? 'none':'flex';
+}
+
+/* ============================================================
+   DATA
+=============================================================*/
+let purchases={}, sales={}, orders={};
+
+function listenData(){
+  db.ref('purchases').on('value', snap=>{ purchases = snap.val()||{}; renderAll(); });
+  db.ref('sales').on('value', snap=>{ sales = snap.val()||{}; renderAll(); });
+  db.ref('orders').on('value', snap=>{ orders = snap.val()||{}; renderAll(); });
+}
+
+function fmt(n){ return '₹'+(Math.round((n||0)*100)/100).toLocaleString('en-IN'); }
+
+function renderAll(){
+  renderDashboard();
+  renderPurchases();
+  renderSales();
+  renderOrders();
+}
+
+/* ---------- DASHBOARD / STOCK TRAY ---------- */
+function renderDashboard(){
+  let totalPurchQty=0, totalSalesQty=0, purchPending=0, salesPending=0, purchCost=0, salesRevenue=0;
+  Object.values(purchases).forEach(p=>{
+    if(p.disabled) return;
+    totalPurchQty += Number(p.qty||0);
+    purchPending += Number(p.pending||0);
+    purchCost += Number(p.qty||0)*Number(p.rate||0);
+  });
+  Object.values(sales).forEach(s=>{
+    if(s.disabled) return;
+    totalSalesQty += Number(s.qty||0);
+    salesPending += Number(s.pending||0);
+    salesRevenue += Number(s.qty||0)*Number(s.rate||0);
+  });
+  const stock = totalPurchQty - totalSalesQty;
+  document.getElementById('stockCount').textContent = stock;
+  document.getElementById('purchasePendingAmt').textContent = fmt(purchPending);
+  document.getElementById('salesPendingAmt').textContent = fmt(salesPending);
+  document.getElementById('profitAmt').textContent = fmt(salesRevenue-purchCost);
+
+  const grid = document.getElementById('trayGrid');
+  grid.innerHTML='';
+  const cells = Math.min(Math.max(stock,0), 100);
+  const totalCells = 30;
+  const filled = Math.min(Math.round((cells/Math.max(cells,30))*30), 30);
+  const showFilled = stock<=0 ? 0 : Math.min(30, stock>=30?30:stock);
+  for(let i=0;i<30;i++){
+    const d=document.createElement('div');
+    d.className='egg-cell'+(i<showFilled?' filled':'');
+    grid.appendChild(d);
+  }
+
+  // recent activity
+  const recentList = document.getElementById('recentList');
+  let items=[];
+  Object.entries(purchases).forEach(([id,p])=>items.push({type:'purchase',date:p.date,text:(lang==='ta'?'கொள்முதல்: ':'Purchase: ')+p.name+' — '+p.qty+' '+T[lang].eggs}));
+  Object.entries(sales).forEach(([id,s])=>items.push({type:'sale',date:s.date,text:(lang==='ta'?'விற்பனை: ':'Sale: ')+s.customerName+' — '+s.qty+' '+T[lang].eggs}));
+  items.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  items=items.slice(0,10);
+  if(items.length===0){
+    recentList.innerHTML = `<div class="empty"><span class="ico">📊</span>${lang==='ta'?'இன்னும் செயல்பாடு இல்லை':'No activity yet'}</div>`;
+  } else {
+    recentList.innerHTML = items.map(it=>`
+      <div class="card">
+        <div class="row-between">
+          <div class="name">${it.text}</div>
+          <div class="sub">${it.date||''}</div>
+        </div>
+      </div>`).join('');
+  }
+}
+
+/* ---------- PURCHASE ---------- */
+function renderPurchases(){
+  const list = document.getElementById('purchaseList');
+  const entries = Object.entries(purchases).sort((a,b)=>(b[1].date||'').localeCompare(a[1].date||''));
+  if(entries.length===0){ list.innerHTML = `<div class="empty"><span class="ico">🛒</span>${T[lang].emptyPurchase}</div>`; return; }
+  // supplier datalist
+  const suppliers = [...new Set(Object.values(purchases).map(p=>p.name))];
+  document.getElementById('supplierList').innerHTML = suppliers.map(s=>`<option value="${s}">`).join('');
+
+  list.innerHTML = entries.map(([id,p])=>{
+    const isPending = Number(p.pending||0) > 0;
+    return `
+    <div class="card ${p.disabled?'disabled':''}">
+      <div class="row-between">
+        <div>
+          <div class="name">${p.name}</div>
+          <div class="sub">📞 ${p.contact||'-'}</div>
+        </div>
+        <span class="badge ${p.disabled?'disabled':(isPending?'pending':'paid')}">${p.disabled?T[lang].disabled:(isPending?T[lang].pending:T[lang].paid)}</span>
+      </div>
+      <div class="meta-grid">
+        <div><span>${T[lang].l4}</span>${p.qty} ${T[lang].eggs}</div>
+        <div><span>${T[lang].l3}</span>${fmt(p.rate)}</div>
+        <div><span>${T[lang].l5}</span>${p.date||'-'}</div>
+        <div><span>${T[lang].l6}</span>${fmt(p.paid)}</div>
+        <div><span>${T[lang].l8}</span>${fmt(p.pending)}</div>
+        <div><span>${T[lang].l7}</span>${p.paiddate||'-'}</div>
+      </div>
+      <div class="actions">
+        <button class="btn-edit" onclick="editPurchase('${id}')">✏️ ${T[lang].edit}</button>
+        ${isPending?`<button class="btn-wa" onclick="waPurchaseReminder('${id}')">💬 ${T[lang].wa}</button>`:''}
+        <button class="btn-toggle" onclick="togglePurchase('${id}')">${p.disabled?'✅ '+T[lang].enable:'🚫 '+T[lang].disable}</button>
+        <button class="btn-del" onclick="deletePurchase('${id}')">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+let editingPurchaseId = null;
+function openAddModal(){
+  if(currentTab==='purchase'){ openPurchaseModal(); }
+  else if(currentTab==='sales'){ openSalesModal(); }
+}
+function openPurchaseModal(id){
+  editingPurchaseId = id || null;
+  document.getElementById('purchaseFormTitle').textContent = id? T[lang].editPurchase : T[lang].addPurchase;
+  if(id){
+    const p = purchases[id];
+    pf_name.value=p.name; pf_contact.value=p.contact||''; pf_rate.value=p.rate;
+    pf_qty.value=p.qty; pf_date.value=p.date; pf_paid.value=p.paid||0;
+    pf_paiddate.value=p.paiddate||''; pf_pending.value=p.pending||0; pf_reminderdays.value=p.reminderdays||7;
+  } else {
+    ['pf_name','pf_contact','pf_rate','pf_qty','pf_paid','pf_pending'].forEach(x=>document.getElementById(x).value='');
+    pf_date.value = new Date().toISOString().split('T')[0];
+    pf_paiddate.value=''; pf_reminderdays.value=7;
+  }
+  document.getElementById('purchaseOverlay').classList.add('show');
+}
+function editPurchase(id){ openPurchaseModal(id); }
+function calcPurchasePending(){
+  const rate=Number(pf_rate.value||0), qty=Number(pf_qty.value||0), paid=Number(pf_paid.value||0);
+  pf_pending.value = Math.max((rate*qty)-paid,0).toFixed(2);
+}
+pf_rate?.addEventListener?.('input',calcPurchasePending);
+pf_qty?.addEventListener?.('input',calcPurchasePending);
+
+function savePurchase(){
+  const name = pf_name.value.trim();
+  if(!name){ alert(lang==='ta'?'பெயரை உள்ளிடவும்':'Enter supplier name'); return; }
+  calcPurchasePending();
+  const data = {
+    name, contact: pf_contact.value.trim(), rate: Number(pf_rate.value||0), qty: Number(pf_qty.value||0),
+    date: pf_date.value, paid: Number(pf_paid.value||0), paiddate: pf_paiddate.value,
+    pending: Number(pf_pending.value||0), reminderdays: Number(pf_reminderdays.value||7),
+    disabled: editingPurchaseId ? (purchases[editingPurchaseId].disabled||false) : false
+  };
+  const ref = editingPurchaseId ? db.ref('purchases/'+editingPurchaseId) : db.ref('purchases').push();
+  ref.set(data).then(()=>closeModal('purchaseOverlay'));
+}
+function togglePurchase(id){
+  if(!confirm(T[lang].confirmToggle)) return;
+  db.ref('purchases/'+id+'/disabled').set(!purchases[id].disabled);
+}
+function deletePurchase(id){
+  if(!confirm(T[lang].confirmDel)) return;
+  db.ref('purchases/'+id).remove();
+}
+function waPurchaseReminder(id){
+  const p = purchases[id];
+  const msg = T[lang].reminderMsg(p.name, p.pending);
+  const phone = (p.contact||'').replace(/\D/g,'');
+  window.open(`https://wa.me/91${phone}?text=${encodeURIComponent(msg)}`,'_blank');
+}
+
+/* ---------- SALES ---------- */
+function renderSales(){
+  const list = document.getElementById('salesList');
+  const entries = Object.entries(sales).sort((a,b)=>(b[1].date||'').localeCompare(a[1].date||''));
+  if(entries.length===0){ list.innerHTML = `<div class="empty"><span class="ico">💰</span>${T[lang].emptySales}</div>`; return; }
+  const customers = [...new Set(Object.values(sales).map(s=>s.customerName))];
+  document.getElementById('customerList').innerHTML = customers.map(c=>`<option value="${c}">`).join('');
+
+  list.innerHTML = entries.map(([id,s])=>{
+    const isPending = Number(s.pending||0) > 0;
+    return `
+    <div class="card ${s.disabled?'disabled':''}">
+      <div class="row-between">
+        <div>
+          <div class="name">${s.customerName}</div>
+          <div class="sub">📞 ${s.contact||'-'}</div>
+        </div>
+        <span class="badge ${s.disabled?'disabled':(isPending?'pending':'paid')}">${s.disabled?T[lang].disabled:(isPending?T[lang].pending:T[lang].paid)}</span>
+      </div>
+      <div class="meta-grid">
+        <div><span>${T[lang].sl4}</span>${s.qty} ${T[lang].eggs}</div>
+        <div><span>${T[lang].sl4b}</span>${fmt(s.rate)}</div>
+        <div><span>${T[lang].sl3}</span>${s.date||'-'}</div>
+        <div><span>${T[lang].sl5}</span>${fmt(s.paid)}</div>
+        <div><span>${T[lang].sl6}</span>${fmt(s.pending)}</div>
+        <div><span></span>${s.note||''}</div>
+      </div>
+      <div class="actions">
+        <button class="btn-edit" onclick="editSale('${id}')">✏️ ${T[lang].edit}</button>
+        <button class="btn-wa" onclick="waThanks('${id}')">💬 ${T[lang].wa}</button>
+        <button class="btn-toggle" onclick="toggleSale('${id}')">${s.disabled?'✅ '+T[lang].enable:'🚫 '+T[lang].disable}</button>
+        <button class="btn-del" onclick="deleteSale('${id}')">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+let editingSaleId=null;
+function openSalesModal(id){
+  editingSaleId = id||null;
+  document.getElementById('salesFormTitle').textContent = id? T[lang].editSale : T[lang].addSale;
+  if(id){
+    const s = sales[id];
+    sf_name.value=s.customerName; sf_contact.value=s.contact||''; sf_date.value=s.date;
+    sf_qty.value=s.qty; sf_rate.value=s.rate||0; sf_paid.value=s.paid||0; sf_pending.value=s.pending||0; sf_note.value=s.note||'';
+  } else {
+    ['sf_name','sf_contact','sf_qty','sf_rate','sf_paid','sf_pending','sf_note'].forEach(x=>document.getElementById(x).value='');
+    sf_date.value = new Date().toISOString().split('T')[0];
+  }
+  document.getElementById('salesOverlay').classList.add('show');
+}
+function editSale(id){ openSalesModal(id); }
+function calcSalesPending(){
+  const rate=Number(sf_rate.value||0), qty=Number(sf_qty.value||0), paid=Number(sf_paid.value||0);
+  sf_pending.value = Math.max((rate*qty)-paid,0).toFixed(2);
+}
+function saveSale(){
+  const name = sf_name.value.trim();
+  if(!name){ alert(lang==='ta'?'பெயரை உள்ளிடவும்':'Enter customer name'); return; }
+  calcSalesPending();
+  const data = {
+    customerName:name, contact:sf_contact.value.trim(), date:sf_date.value, qty:Number(sf_qty.value||0),
+    rate:Number(sf_rate.value||0), paid:Number(sf_paid.value||0), pending:Number(sf_pending.value||0),
+    note:sf_note.value.trim(), disabled: editingSaleId ? (sales[editingSaleId].disabled||false):false
+  };
+  const ref = editingSaleId ? db.ref('sales/'+editingSaleId) : db.ref('sales').push();
+  ref.set(data).then(()=>closeModal('salesOverlay'));
+}
+function toggleSale(id){
+  if(!confirm(T[lang].confirmToggle)) return;
+  db.ref('sales/'+id+'/disabled').set(!sales[id].disabled);
+}
+function deleteSale(id){
+  if(!confirm(T[lang].confirmDel)) return;
+  db.ref('sales/'+id).remove();
+}
+function waThanks(id){
+  const s = sales[id];
+  const amt = (Number(s.rate||0)*Number(s.qty||0)).toFixed(2);
+  const msg = T[lang].thanksMsg(s.customerName, s.qty, amt);
+  const phone = (s.contact||'').replace(/\D/g,'');
+  window.open(`https://wa.me/91${phone}?text=${encodeURIComponent(msg)}`,'_blank');
+}
+
+/* ---------- ORDERS (from public order form) ---------- */
+function renderOrders(){
+  const list = document.getElementById('ordersList');
+  const entries = Object.entries(orders).sort((a,b)=>(b[1].date||'').localeCompare(a[1].date||''));
+  if(entries.length===0){ list.innerHTML = `<div class="empty"><span class="ico">📋</span>${T[lang].emptyOrders}</div>`; return; }
+  list.innerHTML = entries.map(([id,o])=>`
+    <div class="card">
+      <div class="row-between">
+        <div>
+          <div class="name">${o.name}</div>
+          <div class="sub">📞 ${o.contact||'-'} ${o.whatsapp?(' | WA: '+o.whatsapp):''}</div>
+        </div>
+        <span class="pill-status ${o.status==='done'?'pill-done':'pill-new'}">${o.status==='done'?'✔':'NEW'}</span>
+      </div>
+      <div class="meta-grid">
+        <div><span>${T[lang].sl4}</span>${o.qty}</div>
+        <div><span>${T[lang].l3}</span>${fmt(o.price)}</div>
+        <div><span>${T[lang].l5}</span>${o.date}</div>
+        <div><span></span>${o.note||''}</div>
+      </div>
+      <div class="actions">
+        <button class="btn-wa" onclick="waOrderConfirm('${id}')">💬 ${T[lang].wa}</button>
+        <button class="btn-toggle" onclick="toggleOrderDone('${id}')">${o.status==='done'?'↩️':'✔️ '+ (lang==='ta'?'முடிந்தது':'Done')}</button>
+        <button class="btn-del" onclick="deleteOrder('${id}')">🗑️</button>
+      </div>
+    </div>`).join('');
+}
+function toggleOrderDone(id){
+  db.ref('orders/'+id+'/status').set(orders[id].status==='done'?'new':'done');
+}
+function deleteOrder(id){
+  if(!confirm(T[lang].confirmDel)) return;
+  db.ref('orders/'+id).remove();
+}
+function waOrderConfirm(id){
+  const o = orders[id];
+  const msg = (lang==='ta'
+    ? `வணக்கம் ${o.name}! உங்கள் ஆர்டர் (${o.qty} முட்டைகள், ₹${o.price}) பெறப்பட்டது. நன்றி! - முட்டை வர்த்தகம்`
+    : `Hi ${o.name}! Your order (${o.qty} eggs, ₹${o.price}) has been received. Thank you! - Egg Trading`);
+  const phone = (o.whatsapp||o.contact||'').replace(/\D/g,'');
+  window.open(`https://wa.me/91${phone}?text=${encodeURIComponent(msg)}`,'_blank');
+}
+function copyOrderLink(){
+  const url = location.origin + location.pathname.replace('index.html','') + 'order.html';
+  navigator.clipboard.writeText(url).then(()=>alert(T[lang].linkCopied));
+}
+
+function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+
+if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
+</script>
+</body>
+</html>
