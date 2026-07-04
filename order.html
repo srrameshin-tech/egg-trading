@@ -201,7 +201,7 @@ function shareWA(){
   const msg = lang==='ta'
     ? `🔔 புதிய ஆர்டர் வந்துள்ளது\n\n👤 பெயர்     : ${lastOrder.name}\n🥚 பொருள்    : முட்டைகள்\n📦 எண்ணிக்கை : ${lastOrder.qty}\n💰 மொத்தம்   : ₹${lastOrder.price}\n📅 தேதி      : ${d}\n\n✅ உடனடியாக செயல்படுத்தவும்.`
     : `🔔 New Order Received\n\n👤 Name     : ${lastOrder.name}\n🥚 Item     : Eggs\n📦 Quantity : ${lastOrder.qty}\n💰 Total    : ₹${lastOrder.price}\n📅 Date      : ${d}\n\n✅ Please process immediately.`;
-  window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`,'_blank');
+  window.open(`https://wa.me/919994869502?text=${encodeURIComponent(msg)}`,'_blank');
 }
 </script>
 </body>
