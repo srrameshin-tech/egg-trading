@@ -61,6 +61,13 @@ header p{color:#bbb;font-size:12px;margin-top:4px;position:relative;z-index:2;}
   <div class="ico">✅</div>
   <h2 id="sTitle">Order Submitted!</h2>
   <p id="sSub">We'll contact you shortly. Thank you!</p>
+
+  <div id="payBox" style="margin-top:18px;padding-top:18px;border-top:1px dashed #ddd;display:none;">
+    <p style="font-weight:800;color:var(--black);margin-bottom:10px;"><span id="payLabelPrefix">Pay ₹</span><span id="payAmount">0</span><span id="payLabelSuffix"> via UPI</span></p>
+    <img id="payQR" src="" alt="UPI QR" style="width:180px;height:180px;border-radius:12px;border:1px solid #eee;">
+    <a id="payNowBtn" href="#" class="btn" style="display:block;text-decoration:none;margin-top:14px;background:var(--yellow);color:var(--black);">📱 Pay Now</a>
+  </div>
+
   <button class="btn wa-btn" onclick="shareWA()" id="waShareBtn">💬 Share on WhatsApp</button>
 </div>
 
@@ -86,10 +93,12 @@ const L = {
   ta:{title:"🥚 ஆர்டர் படிவம்", sub:"Egg Order Form", l1:"பெயர்", l2:"தொடர்பு எண்", l3:"வாட்ஸ்அப் எண்",
     l4:"அளவு", l5:"தேதி", l6:"விலை (₹)", l7:"குறிப்பு", submit:"சமர்ப்பிக்கவும்",
     sTitle:"ஆர்டர் சமர்ப்பிக்கப்பட்டது!", sSub:"விரைவில் தொடர்பு கொள்வோம். நன்றி!", wa:"💬 வாட்ஸ்அப்பில் பகிரவும்",
+    payLabel:"UPI மூலம் ₹", payLabel2:" செலுத்தவும்", payNow:"📱 இப்போது செலுத்தவும்",
     needName:"பெயரை உள்ளிடவும்"},
   en:{title:"🥚 Order Form", sub:"Egg Order Form", l1:"Name", l2:"Contact Number", l3:"WhatsApp Number",
     l4:"Quantity", l5:"Date", l6:"Price (₹)", l7:"Note", submit:"Submit",
     sTitle:"Order Submitted!", sSub:"We'll contact you shortly. Thank you!", wa:"💬 Share on WhatsApp",
+    payLabel:"Pay ₹", payLabel2:" via UPI", payNow:"📱 Pay Now",
     needName:"Please enter your name"}
 };
 let lang = localStorage.getItem('egg_order_lang') || 'ta';
@@ -99,7 +108,9 @@ function applyLang(){
   l1.textContent=t.l1; l2.textContent=t.l2; l3.textContent=t.l3; l4.textContent=t.l4;
   l5.textContent=t.l5; l6.textContent=t.l6; l7.textContent=t.l7;
   submitBtn.textContent=t.submit; sTitle.textContent=t.sTitle; sSub.textContent=t.sSub;
-  waShareBtn.textContent=t.wa;
+  waShareBtn.textContent=t.wa; payNowBtn.textContent=t.payNow;
+  document.getElementById('payLabelPrefix').textContent = t.payLabel;
+  document.getElementById('payLabelSuffix').textContent = t.payLabel2;
   langBtn.textContent = lang==='ta' ? 'English':'தமிழ்';
 }
 function toggleLang(){ lang = lang==='ta'?'en':'ta'; localStorage.setItem('egg_order_lang',lang); applyLang(); }
@@ -117,6 +128,7 @@ function recalcPrice(){
 }
 
 let lastOrder = null;
+const UPI_ID = "9994869502@kotak";
 function submitOrder(){
   const name = f_name.value.trim();
   if(!name){ alert(L[lang].needName); return; }
@@ -129,6 +141,15 @@ function submitOrder(){
     lastOrder = data;
     formCard.style.display='none';
     successCard.style.display='block';
+    if(data.price > 0){
+      const upiLink = `upi://pay?pa=${encodeURIComponent(UPI_ID)}&pn=${encodeURIComponent('Egg Trading')}&am=${data.price}&cu=INR&tn=${encodeURIComponent('Order-'+data.name)}`;
+      payAmount.textContent = data.price;
+      payQR.src = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(upiLink)}`;
+      payNowBtn.href = upiLink;
+      payBox.style.display = 'block';
+    } else {
+      payBox.style.display = 'none';
+    }
     if(EMAILJS_PUBLIC_KEY && EMAILJS_SERVICE_ID && EMAILJS_TEMPLATE_ID){
       emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
         to_email:"ramesh@sramesh.in", customer_name:data.name, contact:data.contact,
