@@ -506,6 +506,8 @@ function applyLang(){
   document.getElementById('sf_l6').textContent=t.sl6; document.getElementById('sf_l7').textContent=t.sl7;
   document.getElementById('sf_save').textContent=t.saveSale; document.getElementById('sf_cancel').textContent=t.cancel;
   renderAll();
+  renderReportSummary();
+  renderLedger();
 }
 function toggleLang(){
   lang = lang==='ta' ? 'en' : 'ta';
