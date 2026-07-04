@@ -49,10 +49,10 @@ header p{color:#bbb;font-size:12px;margin-top:4px;position:relative;z-index:2;}
     <div class="field"><label id="l3">WhatsApp Number</label><input id="f_whatsapp" type="tel" maxlength="10"></div>
   </div>
   <div class="two-col">
-    <div class="field"><label id="l4">Quantity</label><input id="f_qty" type="number"></div>
+    <div class="field"><label id="l4">Quantity</label><input id="f_qty" type="number" oninput="recalcPrice()"></div>
     <div class="field"><label id="l5">Date</label><input id="f_date" type="date"></div>
   </div>
-  <div class="field"><label id="l6">Price (₹)</label><input id="f_price" type="number" step="0.01"></div>
+  <div class="field"><label id="l6">Price (₹)</label><input id="f_price" type="number" step="0.01" readonly style="background:#eee;font-weight:800;"></div>
   <div class="field"><label id="l7">Note</label><textarea id="f_note" rows="2"></textarea></div>
   <button class="btn" onclick="submitOrder()" id="submitBtn">Submit</button>
 </div>
@@ -105,6 +105,16 @@ function applyLang(){
 function toggleLang(){ lang = lang==='ta'?'en':'ta'; localStorage.setItem('egg_order_lang',lang); applyLang(); }
 applyLang();
 f_date.value = new Date().toISOString().split('T')[0];
+
+let sellingRate = 0;
+db.ref('settings/saleRate').once('value').then(snap=>{
+  sellingRate = snap.exists() ? Number(snap.val()) : 0;
+  recalcPrice();
+});
+function recalcPrice(){
+  const qty = Number(f_qty.value||0);
+  f_price.value = (qty * sellingRate).toFixed(2);
+}
 
 let lastOrder = null;
 function submitOrder(){
