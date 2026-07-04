@@ -786,9 +786,10 @@ function deleteOrder(id){
 }
 function waOrderConfirm(id){
   const o = orders[id];
+  const d = (o.date||'').split('-').reverse().join('-');
   const msg = (lang==='ta'
-    ? `வணக்கம் ${o.name}! உங்கள் ஆர்டர் (${o.qty} முட்டைகள், ₹${o.price}) பெறப்பட்டது. நன்றி! - முட்டை வர்த்தகம்`
-    : `Hi ${o.name}! Your order (${o.qty} eggs, ₹${o.price}) has been received. Thank you! - Egg Trading`);
+    ? `🛒 ஆர்டர் பெறப்பட்டது\n\n👤 வாடிக்கையாளர் : ${o.name}\n🥚 பொருள்      : முட்டைகள்\n📦 எண்ணிக்கை   : ${o.qty}\n💰 தொகை        : ₹${o.price}\n📅 தேதி        : ${d}\n\n🙏 நன்றி! உங்கள் ஆர்டர் வெற்றிகரமாக பதிவு செய்யப்பட்டுள்ளது.`
+    : `🛒 ORDER RECEIVED\n\n👤 Customer : ${o.name}\n🥚 Product   : Eggs\n📦 Quantity  : ${o.qty}\n💰 Amount    : ₹${o.price}\n📅 Date      : ${d}\n\n🙏 Thank you! Your order has been recorded successfully.`);
   const phone = (o.whatsapp||o.contact||'').replace(/\D/g,'');
   window.open(`https://wa.me/91${phone}?text=${encodeURIComponent(msg)}`,'_blank');
 }
