@@ -248,6 +248,13 @@ nav.tabbar button .ico{font-size:19px;}
         <span id="ordersTitle">Orders</span>
         <button class="lang-toggle" style="background:var(--green);color:#fff;" onclick="copyOrderLink()" id="shareLinkBtn">🔗 Link</button>
       </div>
+      <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+        <div>
+          <div class="sub" id="rateLabel" style="font-weight:800;color:var(--black);">Selling Rate (₹/egg)</div>
+          <div class="sub" id="rateHint">Customers see this auto-filled on the order form</div>
+        </div>
+        <input id="defaultRateInput" type="number" step="0.01" style="width:90px;padding:8px;border-radius:8px;border:1.5px solid #ddd;font-weight:800;text-align:center;" oninput="saveDefaultRate()">
+      </div>
       <div id="ordersList"></div>
     </div>
 
@@ -352,7 +359,8 @@ const T = {
     confirmDel:"Delete this entry permanently?", confirmToggle:"Change status?",
     thanksMsg: (name,qty,amt)=>`Hi ${name}! 🥚 Thanks for your purchase of ${qty} eggs (₹${amt}). We appreciate your business! - Egg Trading`,
     reminderMsg:(name,amt)=>`Hi ${name}, this is a gentle reminder that ₹${amt} is pending for your egg purchase. Please clear at your convenience. Thank you!`,
-    linkCopied:"Order form link copied!"
+    linkCopied:"Order form link copied!",
+    rateLabel:"Selling Rate (₹/egg)", rateHint:"Customers see this auto-filled on the order form"
   },
   ta:{
     title:"முட்டை வர்த்தகம்", live:"லைவ்", stock:"தற்போதைய இருப்பு", eggs:"முட்டைகள்",
@@ -376,7 +384,8 @@ const T = {
     confirmDel:"இதை நிரந்தரமாக நீக்கவா?", confirmToggle:"நிலையை மாற்றவா?",
     thanksMsg:(name,qty,amt)=>`வணக்கம் ${name}! 🥚 ${qty} முட்டைகள் (₹${amt}) வாங்கியதற்கு நன்றி! உங்கள் ஆதரவுக்கு நன்றி! - முட்டை வர்த்தகம்`,
     reminderMsg:(name,amt)=>`வணக்கம் ${name}, ₹${amt} நிலுவையில் உள்ளது என்பதை அன்புடன் நினைவூட்டுகிறோம். சாத்தியமான போது செலுத்தவும். நன்றி!`,
-    linkCopied:"ஆர்டர் படிவ லிங்க் காபி ஆனது!"
+    linkCopied:"ஆர்டர் படிவ லிங்க் காபி ஆனது!",
+    rateLabel:"விற்பனை விலை (₹/முட்டை)", rateHint:"இந்த விலை ஆர்டர் படிவத்தில் தானாக நிரப்பப்படும்"
   }
 };
 let lang = localStorage.getItem('egg_lang') || 'ta';
@@ -400,6 +409,8 @@ function applyLang(){
   document.getElementById('ordersTitle').textContent = t.orders;
   document.getElementById('logoutBtn').textContent = t.logout;
   document.getElementById('shareLinkBtn').textContent = '🔗 '+t.link;
+  document.getElementById('rateLabel').textContent = t.rateLabel;
+  document.getElementById('rateHint').textContent = t.rateHint;
   document.getElementById('loginSub').textContent = t.loginSub;
   document.getElementById('loginBtnTxt').textContent = t.loginBtn;
   document.getElementById('langBtn').textContent = lang==='ta' ? 'English' : 'தமிழ்';
@@ -487,6 +498,17 @@ function listenData(){
   db.ref('purchases').on('value', snap=>{ purchases = snap.val()||{}; renderAll(); });
   db.ref('sales').on('value', snap=>{ sales = snap.val()||{}; renderAll(); });
   db.ref('orders').on('value', snap=>{ orders = snap.val()||{}; renderAll(); });
+  db.ref('settings/saleRate').on('value', snap=>{
+    const rate = snap.exists() ? snap.val() : '';
+    const el = document.getElementById('defaultRateInput');
+    if(el && document.activeElement !== el) el.value = rate;
+  });
+}
+let rateDebounce;
+function saveDefaultRate(){
+  clearTimeout(rateDebounce);
+  const val = Number(document.getElementById('defaultRateInput').value||0);
+  rateDebounce = setTimeout(()=>{ db.ref('settings/saleRate').set(val); }, 500);
 }
 
 function fmt(n){ return '₹'+(Math.round((n||0)*100)/100).toLocaleString('en-IN'); }
