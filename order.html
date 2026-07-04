@@ -123,7 +123,7 @@ function submitOrder(){
       emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
         to_email:"ramesh@sramesh.in", customer_name:data.name, contact:data.contact,
         qty:data.qty, price:data.price, date:data.date, note:data.note
-      }).catch(()=>{});
+      }).then(()=>{ console.log('Email sent OK'); }).catch((err)=>{ alert('Email error: '+JSON.stringify(err)); });
     }
   });
 }
