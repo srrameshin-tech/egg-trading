@@ -139,9 +139,10 @@ function submitOrder(){
 }
 function shareWA(){
   if(!lastOrder) return;
+  const d = lastOrder.date.split('-').reverse().join('-'); // YYYY-MM-DD -> DD-MM-YYYY
   const msg = lang==='ta'
-    ? `என் ஆர்டர்: ${lastOrder.name}, ${lastOrder.qty} முட்டைகள், ₹${lastOrder.price}, தேதி ${lastOrder.date}`
-    : `My order: ${lastOrder.name}, ${lastOrder.qty} eggs, ₹${lastOrder.price}, date ${lastOrder.date}`;
+    ? `🛒 ஆர்டர் பெறப்பட்டது\n\n👤 வாடிக்கையாளர் : ${lastOrder.name}\n🥚 பொருள்      : முட்டைகள்\n📦 எண்ணிக்கை   : ${lastOrder.qty}\n💰 தொகை        : ₹${lastOrder.price}\n📅 தேதி        : ${d}\n\n🙏 நன்றி! உங்கள் ஆர்டர் வெற்றிகரமாக பதிவு செய்யப்பட்டுள்ளது.`
+    : `🛒 ORDER RECEIVED\n\n👤 Customer : ${lastOrder.name}\n🥚 Product   : Eggs\n📦 Quantity  : ${lastOrder.qty}\n💰 Amount    : ₹${lastOrder.price}\n📅 Date      : ${d}\n\n🙏 Thank you! Your order has been recorded successfully.`;
   window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`,'_blank');
 }
 </script>
