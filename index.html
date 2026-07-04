@@ -12,6 +12,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Noto+Sans+Tamil:wght@500;700;800&family=Inter:wght@500;700;800;900&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root{
   --yellow:#FFC800;
@@ -265,6 +268,50 @@ nav.tabbar button .ico{font-size:19px;}
       <div id="ordersList"></div>
     </div>
 
+    <!-- ============ REPORTS TAB ============ -->
+    <div id="tab-reports" class="tabcontent" style="display:none;">
+      <div class="section-title"><span id="reportsTitle">Reports</span></div>
+
+      <div class="tabs-inline" id="reportsMainTabs">
+        <button class="active" id="repTabReport" onclick="switchReportsSub('report',this)">Report</button>
+        <button id="repTabLedger" onclick="switchReportsSub('ledger',this)">Ledger</button>
+        <button id="repTabStaff" onclick="switchReportsSub('staff',this)" style="display:none;">Staff Access</button>
+      </div>
+
+      <!-- REPORT SUB-TAB -->
+      <div id="repsub-report">
+        <div class="card">
+          <div class="two-col">
+            <div class="field"><label id="repFromLabel" style="font-size:12px;font-weight:700;color:var(--gray-dark);display:block;margin-bottom:4px;">From</label><input id="repFrom" type="date" style="width:100%;padding:10px;border-radius:8px;border:1.5px solid #ddd;"></div>
+            <div class="field"><label id="repToLabel" style="font-size:12px;font-weight:700;color:var(--gray-dark);display:block;margin-bottom:4px;">To</label><input id="repTo" type="date" style="width:100%;padding:10px;border-radius:8px;border:1.5px solid #ddd;"></div>
+          </div>
+          <div id="repSummary" style="margin:12px 0;font-size:13px;font-weight:700;"></div>
+          <div style="display:flex;gap:10px;">
+            <button class="btn-edit" style="flex:1;padding:12px;border-radius:10px;" onclick="exportReportPDF()">📄 <span id="exportPdfBtn">Export PDF</span></button>
+            <button class="btn-wa" style="flex:1;padding:12px;border-radius:10px;" onclick="exportReportExcel()">📊 <span id="exportExcelBtn">Export Excel</span></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- LEDGER SUB-TAB -->
+      <div id="repsub-ledger" style="display:none;">
+        <div class="tabs-inline">
+          <button class="active" id="ledgerTabSupplier" onclick="switchLedgerType('supplier',this)">Suppliers</button>
+          <button id="ledgerTabCustomer" onclick="switchLedgerType('customer',this)">Customers</button>
+        </div>
+        <div id="ledgerList"></div>
+      </div>
+
+      <!-- STAFF ACCESS SUB-TAB (admin only) -->
+      <div id="repsub-staff" style="display:none;">
+        <div class="card">
+          <div class="sub" id="staffPinLabel" style="font-weight:800;color:var(--black);margin-bottom:4px;">Staff PIN (4 digits)</div>
+          <div class="sub" id="staffPinHint" style="margin-bottom:10px;">Staff login with this PIN can only add/view Sales. Leave blank to disable staff access.</div>
+          <input id="staffPinInput" type="text" maxlength="4" inputmode="numeric" style="width:120px;padding:10px;border-radius:8px;border:1.5px solid #ddd;font-weight:800;text-align:center;font-size:18px;" oninput="saveStaffPin()">
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -272,9 +319,10 @@ nav.tabbar button .ico{font-size:19px;}
 
 <nav class="tabbar" id="tabbar" style="display:none;">
   <button class="active" onclick="switchTab('dash',this)"><span class="ico">📊</span><span id="navDash">Dashboard</span></button>
-  <button onclick="switchTab('purchase',this)"><span class="ico">🛒</span><span id="navPurchase">Purchase</span></button>
+  <button id="navBtnPurchase" onclick="switchTab('purchase',this)"><span class="ico">🛒</span><span id="navPurchase">Purchase</span></button>
   <button onclick="switchTab('sales',this)"><span class="ico">💰</span><span id="navSales">Sales</span></button>
   <button onclick="switchTab('orders',this)"><span class="ico">📋</span><span id="navOrders">Orders</span></button>
+  <button id="navBtnReports" onclick="switchTab('reports',this)"><span class="ico">📈</span><span id="navReports">Reports</span></button>
 </nav>
 
 <!-- ================= MODAL: PURCHASE FORM ================= -->
@@ -347,7 +395,10 @@ const T = {
   en:{
     title:"Egg Trading", live:"LIVE", stock:"CURRENT STOCK", eggs:"eggs",
     purchPending:"Purchase Pending", salesPending:"Sales Pending", profit:"Est. Profit",
-    navDash:"Dashboard", navPurchase:"Purchase", navSales:"Sales", navOrders:"Orders",
+    navDash:"Dashboard", navPurchase:"Purchase", navSales:"Sales", navOrders:"Orders", navReports:"Reports",
+    reportsTitle:"Reports", repFrom:"From", repTo:"To", repTab:"Report", ledgerTab:"Ledger", staffTab:"Staff Access",
+    exportPdf:"Export PDF", exportExcel:"Export Excel", ledgerSupplier:"Suppliers", ledgerCustomer:"Customers",
+    staffPinLabel:"Staff PIN (4 digits)", staffPinHint:"Staff login with this PIN can only add/view Sales. Leave blank to disable staff access.",
     recent:"Recent Activity", purchases:"Purchases", sales:"Sales", orders:"Orders",
     addPurchase:"Add Purchase", editPurchase:"Edit Purchase",
     addSale:"Add Sale", editSale:"Edit Sale",
@@ -373,7 +424,10 @@ const T = {
   ta:{
     title:"முட்டை வர்த்தகம்", live:"லைவ்", stock:"தற்போதைய இருப்பு", eggs:"முட்டைகள்",
     purchPending:"கொள்முதல் நிலுவை", salesPending:"விற்பனை நிலுவை", profit:"மதிப்பிடப்பட்ட லாபம்",
-    navDash:"டாஷ்போர்டு", navPurchase:"கொள்முதல்", navSales:"விற்பனை", navOrders:"ஆர்டர்கள்",
+    navDash:"டாஷ்போர்டு", navPurchase:"கொள்முதல்", navSales:"விற்பனை", navOrders:"ஆர்டர்கள்", navReports:"அறிக்கைகள்",
+    reportsTitle:"அறிக்கைகள்", repFrom:"தொடக்கம்", repTo:"முடிவு", repTab:"அறிக்கை", ledgerTab:"லெட்ஜர்", staffTab:"பணியாளர் அணுகல்",
+    exportPdf:"PDF ஏற்றுமதி", exportExcel:"Excel ஏற்றுமதி", ledgerSupplier:"சப்ளையர்கள்", ledgerCustomer:"வாடிக்கையாளர்கள்",
+    staffPinLabel:"பணியாளர் PIN (4 இலக்கம்)", staffPinHint:"இந்த PIN மூலம் உள்நுழையும் பணியாளர் விற்பனையை மட்டும் சேர்க்க/பார்க்க முடியும். பணியாளர் அணுகலை முடக்க காலியாக விடவும்.",
     recent:"சமீபத்திய செயல்பாடு", purchases:"கொள்முதல்கள்", sales:"விற்பனைகள்", orders:"ஆர்டர்கள்",
     addPurchase:"கொள்முதல் சேர்க்க", editPurchase:"கொள்முதல் திருத்த",
     addSale:"விற்பனை சேர்க்க", editSale:"விற்பனை திருத்த",
@@ -412,6 +466,19 @@ function applyLang(){
   document.getElementById('navPurchase').textContent = t.navPurchase;
   document.getElementById('navSales').textContent = t.navSales;
   document.getElementById('navOrders').textContent = t.navOrders;
+  document.getElementById('navReports').textContent = t.navReports;
+  document.getElementById('reportsTitle').textContent = t.reportsTitle;
+  document.getElementById('repFromLabel').textContent = t.repFrom;
+  document.getElementById('repToLabel').textContent = t.repTo;
+  document.getElementById('repTabReport').textContent = t.repTab;
+  document.getElementById('repTabLedger').textContent = t.ledgerTab;
+  document.getElementById('repTabStaff').textContent = t.staffTab;
+  document.getElementById('exportPdfBtn').textContent = t.exportPdf;
+  document.getElementById('exportExcelBtn').textContent = t.exportExcel;
+  document.getElementById('ledgerTabSupplier').textContent = t.ledgerSupplier;
+  document.getElementById('ledgerTabCustomer').textContent = t.ledgerCustomer;
+  document.getElementById('staffPinLabel').textContent = t.staffPinLabel;
+  document.getElementById('staffPinHint').textContent = t.staffPinHint;
   document.getElementById('dashRecentTitle').textContent = t.recent;
   document.getElementById('purchaseTitle').textContent = t.purchases;
   document.getElementById('salesTitle').textContent = t.sales;
@@ -459,10 +526,19 @@ pinInputs.forEach((inp,i)=>{
 });
 function tryLogin(){
   const pin = Array.from(pinInputs).map(i=>i.value).join('');
-  db.ref('settings/pin').once('value').then(snap=>{
-    const savedPin = snap.exists() ? snap.val() : DEFAULT_PIN;
-    if(pin === savedPin){
+  Promise.all([
+    db.ref('settings/pin').once('value'),
+    db.ref('settings/staffPin').once('value')
+  ]).then(([adminSnap, staffSnap])=>{
+    const adminPin = adminSnap.exists() ? adminSnap.val() : DEFAULT_PIN;
+    const staffPin = staffSnap.exists() ? staffSnap.val() : '';
+    if(pin === adminPin){
       sessionStorage.setItem('egg_auth','1');
+      sessionStorage.setItem('egg_role','admin');
+      showApp();
+    } else if(staffPin && pin === staffPin){
+      sessionStorage.setItem('egg_auth','1');
+      sessionStorage.setItem('egg_role','staff');
       showApp();
     } else {
       document.getElementById('loginErr').textContent = T[lang].loginErr;
@@ -473,6 +549,7 @@ function tryLogin(){
 }
 function logout(){
   sessionStorage.removeItem('egg_auth');
+  sessionStorage.removeItem('egg_role');
   location.reload();
 }
 function showApp(){
@@ -482,8 +559,21 @@ function showApp(){
   document.getElementById('fabBtn').style.display='flex';
   document.getElementById('fabBtn').style.alignItems='center';
   document.getElementById('fabBtn').style.justifyContent='center';
+  applyRoleRestrictions();
   applyLang();
   listenData();
+}
+function applyRoleRestrictions(){
+  const role = sessionStorage.getItem('egg_role') || 'admin';
+  const isStaff = role === 'staff';
+  document.getElementById('navBtnPurchase').style.display = isStaff ? 'none' : 'flex';
+  document.getElementById('repTabStaff').style.display = isStaff ? 'none' : 'inline-block';
+  document.getElementById('defaultRateInput').disabled = isStaff;
+  document.getElementById('minQtyInput').disabled = isStaff;
+  if(isStaff){
+    // Default staff view to Sales tab since Purchase/Orders-settings are admin-only
+    switchTab('sales', document.querySelector("nav.tabbar button[onclick*=\"'sales'\"]"));
+  }
 }
 if(sessionStorage.getItem('egg_auth')==='1'){ showApp(); }
 
@@ -497,7 +587,21 @@ function switchTab(tab, btn){
   document.getElementById('tab-'+tab).style.display='block';
   document.querySelectorAll('nav.tabbar button').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  document.getElementById('fabBtn').style.display = (tab==='dash' || tab==='orders') ? 'none':'flex';
+  document.getElementById('fabBtn').style.display = (tab==='dash' || tab==='orders' || tab==='reports') ? 'none':'flex';
+  if(tab==='reports'){ renderReportSummary(); renderLedger(); }
+}
+function switchReportsSub(sub, btn){
+  document.querySelectorAll('#tab-reports > div[id^="repsub-"]').forEach(el=>el.style.display='none');
+  document.getElementById('repsub-'+sub).style.display='block';
+  document.querySelectorAll('#reportsMainTabs button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+let currentLedgerType = 'supplier';
+function switchLedgerType(type, btn){
+  currentLedgerType = type;
+  document.querySelectorAll('#repsub-ledger .tabs-inline button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderLedger();
 }
 
 /* ============================================================
@@ -518,6 +622,11 @@ function listenData(){
     const qty = snap.exists() ? snap.val() : 1;
     const el = document.getElementById('minQtyInput');
     if(el && document.activeElement !== el) el.value = qty;
+  });
+  db.ref('settings/staffPin').on('value', snap=>{
+    const pin = snap.exists() ? snap.val() : '';
+    const el = document.getElementById('staffPinInput');
+    if(el && document.activeElement !== el) el.value = pin;
   });
 }
 let minQtyDebounce;
@@ -822,6 +931,127 @@ function copyOrderLink(){
 }
 
 function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+
+/* ---------- REPORTS ---------- */
+function getReportRange(){
+  const from = document.getElementById('repFrom').value;
+  const to = document.getElementById('repTo').value;
+  return {from, to};
+}
+function inRange(dateStr, from, to){
+  if(!dateStr) return false;
+  if(from && dateStr < from) return false;
+  if(to && dateStr > to) return false;
+  return true;
+}
+function renderReportSummary(){
+  const {from, to} = getReportRange();
+  let pQty=0, pAmt=0, sQty=0, sAmt=0;
+  Object.values(purchases).forEach(p=>{
+    if(p.disabled) return;
+    if(from||to){ if(!inRange(p.date, from, to)) return; }
+    pQty += Number(p.qty||0); pAmt += Number(p.qty||0)*Number(p.rate||0);
+  });
+  Object.values(sales).forEach(s=>{
+    if(s.disabled) return;
+    if(from||to){ if(!inRange(s.date, from, to)) return; }
+    sQty += Number(s.qty||0); sAmt += Number(s.qty||0)*Number(s.rate||0);
+  });
+  const profit = sAmt - pAmt;
+  const isTa = lang==='ta';
+  document.getElementById('repSummary').innerHTML = `
+    <div class="meta-grid">
+      <div><span>${isTa?'கொள்முதல் அளவு':'Purchase Qty'}</span>${pQty}</div>
+      <div><span>${isTa?'கொள்முதல் தொகை':'Purchase Amt'}</span>${fmt(pAmt)}</div>
+      <div><span>${isTa?'விற்பனை அளவு':'Sales Qty'}</span>${sQty}</div>
+      <div><span>${isTa?'விற்பனை தொகை':'Sales Amt'}</span>${fmt(sAmt)}</div>
+      <div style="grid-column:1/-1;"><span>${isTa?'லாபம்':'Profit'}</span><b style="color:${profit>=0?'var(--green)':'var(--red)'}">${fmt(profit)}</b></div>
+    </div>`;
+}
+document.addEventListener('change', e=>{
+  if(e.target && (e.target.id==='repFrom' || e.target.id==='repTo')) renderReportSummary();
+});
+
+function exportReportPDF(){
+  const {from, to} = getReportRange();
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  doc.setFontSize(16); doc.text('Egg Trading - Report', 14, 15);
+  doc.setFontSize(10); doc.text(`Period: ${from||'Start'} to ${to||'Today'}`, 14, 22);
+
+  const purchRows = Object.values(purchases).filter(p=>!p.disabled && (!(from||to) || inRange(p.date, from, to)))
+    .map(p=>[p.name, p.qty, p.rate, (p.qty*p.rate).toFixed(2), p.date]);
+  const salesRows = Object.values(sales).filter(s=>!s.disabled && (!(from||to) || inRange(s.date, from, to)))
+    .map(s=>[s.customerName, s.qty, s.rate, (s.qty*s.rate).toFixed(2), s.date]);
+
+  doc.autoTable({ startY:28, head:[['Purchases','Qty','Rate','Amount','Date']], body: purchRows.map(r=>[r[0],r[1],r[2],r[3],r[4]]) });
+  doc.autoTable({ startY: doc.lastAutoTable.finalY+8, head:[['Sales','Qty','Rate','Amount','Date']], body: salesRows.map(r=>[r[0],r[1],r[2],r[3],r[4]]) });
+
+  doc.save(`egg-report-${from||'all'}-to-${to||'today'}.pdf`);
+}
+function exportReportExcel(){
+  const {from, to} = getReportRange();
+  const purchRows = Object.values(purchases).filter(p=>!p.disabled && (!(from||to) || inRange(p.date, from, to)))
+    .map(p=>({Name:p.name, Qty:p.qty, Rate:p.rate, Amount:(p.qty*p.rate).toFixed(2), Date:p.date}));
+  const salesRows = Object.values(sales).filter(s=>!s.disabled && (!(from||to) || inRange(s.date, from, to)))
+    .map(s=>({Customer:s.customerName, Qty:s.qty, Rate:s.rate, Amount:(s.qty*s.rate).toFixed(2), Date:s.date}));
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(purchRows), 'Purchases');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(salesRows), 'Sales');
+  XLSX.writeFile(wb, `egg-report-${from||'all'}-to-${to||'today'}.xlsx`);
+}
+
+/* ---------- LEDGER ---------- */
+function renderLedger(){
+  const list = document.getElementById('ledgerList');
+  const isTa = lang==='ta';
+  let map = {};
+  if(currentLedgerType==='supplier'){
+    Object.values(purchases).forEach(p=>{
+      if(p.disabled) return;
+      const key = p.name;
+      if(!map[key]) map[key] = {total:0, paid:0, pending:0, qty:0};
+      map[key].total += Number(p.qty||0)*Number(p.rate||0);
+      map[key].paid += Number(p.paid||0);
+      map[key].pending += Number(p.pending||0);
+      map[key].qty += Number(p.qty||0);
+    });
+  } else {
+    Object.values(sales).forEach(s=>{
+      if(s.disabled) return;
+      const key = s.customerName;
+      if(!map[key]) map[key] = {total:0, paid:0, pending:0, qty:0};
+      map[key].total += Number(s.qty||0)*Number(s.rate||0);
+      map[key].paid += Number(s.paid||0);
+      map[key].pending += Number(s.pending||0);
+      map[key].qty += Number(s.qty||0);
+    });
+  }
+  const entries = Object.entries(map).sort((a,b)=>b[1].pending-a[1].pending);
+  if(entries.length===0){ list.innerHTML = `<div class="empty"><span class="ico">📒</span>${isTa?'தரவு இல்லை':'No data'}</div>`; return; }
+  list.innerHTML = entries.map(([name,d])=>`
+    <div class="card">
+      <div class="row-between">
+        <div class="name">${name}</div>
+        <span class="badge ${d.pending>0?'pending':'paid'}">${d.pending>0?fmt(d.pending):(isTa?'தீர்வு':'Settled')}</span>
+      </div>
+      <div class="meta-grid">
+        <div><span>${isTa?'மொத்த அளவு':'Total Qty'}</span>${d.qty}</div>
+        <div><span>${isTa?'மொத்த தொகை':'Total Amount'}</span>${fmt(d.total)}</div>
+        <div><span>${isTa?'செலுத்தியது':'Paid'}</span>${fmt(d.paid)}</div>
+        <div><span>${isTa?'நிலுவை':'Pending'}</span>${fmt(d.pending)}</div>
+      </div>
+    </div>`).join('');
+}
+
+/* ---------- STAFF PIN ---------- */
+let staffPinDebounce;
+function saveStaffPin(){
+  clearTimeout(staffPinDebounce);
+  const val = document.getElementById('staffPinInput').value.trim();
+  staffPinDebounce = setTimeout(()=>{ db.ref('settings/staffPin').set(val); }, 500);
+}
 
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
 </script>
