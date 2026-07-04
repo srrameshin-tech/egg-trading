@@ -373,16 +373,6 @@ nav.tabbar button .ico{font-size:19px;}
 <datalist id="dummy"></datalist>
 
 <script>
-window.addEventListener('error', function(e){
-  var b = document.getElementById('debugErrBanner');
-  if(!b){
-    b = document.createElement('div');
-    b.id = 'debugErrBanner';
-    b.style.cssText = 'position:fixed;top:0;left:0;right:0;background:red;color:#fff;padding:10px;font-size:11px;z-index:99999;word-break:break-word;max-height:40vh;overflow:auto;';
-    document.body.appendChild(b);
-  }
-  b.innerHTML += '<div>ERROR: '+e.message+' (line '+e.lineno+')</div>';
-});
 /* ============================================================
    FIREBASE
 =============================================================*/
@@ -587,7 +577,7 @@ function applyRoleRestrictions(){
     switchTab('sales', document.querySelector("nav.tabbar button[onclick*=\"'sales'\"]"));
   }
 }
-if(sessionStorage.getItem('egg_auth')==='1'){ showApp(); }
+let purchases={}, sales={}, orders={};
 
 /* ============================================================
    TAB NAV
@@ -619,7 +609,6 @@ function switchLedgerType(type, btn){
 /* ============================================================
    DATA
 =============================================================*/
-let purchases={}, sales={}, orders={};
 
 function listenData(){
   db.ref('purchases').on('value', snap=>{ purchases = snap.val()||{}; renderAll(); });
@@ -1066,6 +1055,8 @@ function saveStaffPin(){
 }
 
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
+
+if(sessionStorage.getItem('egg_auth')==='1'){ showApp(); }
 </script>
 </body>
 </html>
