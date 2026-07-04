@@ -1,0 +1,30 @@
+name: Weekly Firebase Backup
+
+on:
+  schedule:
+    - cron: '30 3 * * 0'   # Every Sunday 9:00 AM IST
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Fetch Firebase data
+        run: |
+          mkdir -p backups
+          DATE=$(date +'%Y-%m-%d')
+          curl -s "https://egg-trading-2dd61-default-rtdb.asia-southeast1.firebasedatabase.app/.json" -o "backups/backup-$DATE.json"
+
+      - name: Commit backup
+        run: |
+          git config user.name "backup-bot"
+          git config user.email "backup-bot@egg.sramesh.in"
+          git add backups/
+          git diff --cached --quiet || git commit -m "Weekly backup $(date +'%Y-%m-%d')"
+          git push
