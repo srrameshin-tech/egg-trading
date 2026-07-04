@@ -373,6 +373,16 @@ nav.tabbar button .ico{font-size:19px;}
 <datalist id="dummy"></datalist>
 
 <script>
+window.addEventListener('error', function(e){
+  var b = document.getElementById('debugErrBanner');
+  if(!b){
+    b = document.createElement('div');
+    b.id = 'debugErrBanner';
+    b.style.cssText = 'position:fixed;top:0;left:0;right:0;background:red;color:#fff;padding:10px;font-size:11px;z-index:99999;word-break:break-word;max-height:40vh;overflow:auto;';
+    document.body.appendChild(b);
+  }
+  b.innerHTML += '<div>ERROR: '+e.message+' (line '+e.lineno+')</div>';
+});
 /* ============================================================
    FIREBASE
 =============================================================*/
