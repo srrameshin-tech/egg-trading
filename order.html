@@ -48,12 +48,17 @@ header p{color:#bbb;font-size:12px;margin-top:4px;position:relative;z-index:2;}
     <div class="field"><label id="l2">Contact Number</label><input id="f_contact" type="tel" maxlength="10"></div>
     <div class="field"><label id="l3">WhatsApp Number</label><input id="f_whatsapp" type="tel" maxlength="10"></div>
   </div>
+  <div class="field"><label id="l8">Delivery Address</label><textarea id="f_address" rows="2"></textarea></div>
   <div class="two-col">
-    <div class="field"><label id="l4">Quantity</label><input id="f_qty" type="number" oninput="recalcPrice()"></div>
+    <div class="field"><label id="l4">Quantity</label><input id="f_qty" type="number" oninput="recalcPrice()"><small id="minQtyHint" style="color:var(--gray-dark);font-size:11px;"></small></div>
     <div class="field"><label id="l5">Date</label><input id="f_date" type="date"></div>
   </div>
   <div class="field"><label id="l6">Price (₹)</label><input id="f_price" type="number" step="0.01" readonly style="background:#eee;font-weight:800;"></div>
   <div class="field"><label id="l7">Note</label><textarea id="f_note" rows="2"></textarea></div>
+  <div class="field" style="display:flex;align-items:center;gap:8px;">
+    <input type="checkbox" id="f_savedetails" style="width:18px;height:18px;">
+    <label for="f_savedetails" id="l9" style="margin:0;">Save my details for next time</label>
+  </div>
   <button class="btn" onclick="submitOrder()" id="submitBtn">Submit</button>
 </div>
 
@@ -91,37 +96,59 @@ if(EMAILJS_PUBLIC_KEY){ emailjs.init(EMAILJS_PUBLIC_KEY); }
 
 const L = {
   ta:{title:"🥚 ஆர்டர் படிவம்", sub:"Egg Order Form", l1:"பெயர்", l2:"தொடர்பு எண்", l3:"வாட்ஸ்அப் எண்",
-    l4:"அளவு", l5:"தேதி", l6:"விலை (₹)", l7:"குறிப்பு", submit:"சமர்ப்பிக்கவும்",
+    l4:"அளவு", l5:"தேதி", l6:"விலை (₹)", l7:"குறிப்பு", l8:"டெலிவரி முகவரி", l9:"அடுத்த முறை எனக்காக இதை சேமிக்கவும்",
+    submit:"சமர்ப்பிக்கவும்",
     sTitle:"ஆர்டர் சமர்ப்பிக்கப்பட்டது!", sSub:"விரைவில் தொடர்பு கொள்வோம். நன்றி!", wa:"💬 வாட்ஸ்அப்பில் பகிரவும்",
     payLabel:"UPI மூலம் ₹", payLabel2:" செலுத்தவும்", payNow:"📱 இப்போது செலுத்தவும்",
-    needName:"பெயரை உள்ளிடவும்"},
+    needName:"பெயரை உள்ளிடவும்", minQtyHint:(n)=>`குறைந்தபட்சம் ${n} முட்டைகள்`,
+    minQtyError:(n)=>`குறைந்தபட்சம் ${n} முட்டைகள் ஆர்டர் செய்யவும்`},
   en:{title:"🥚 Order Form", sub:"Egg Order Form", l1:"Name", l2:"Contact Number", l3:"WhatsApp Number",
-    l4:"Quantity", l5:"Date", l6:"Price (₹)", l7:"Note", submit:"Submit",
+    l4:"Quantity", l5:"Date", l6:"Price (₹)", l7:"Note", l8:"Delivery Address", l9:"Save my details for next time",
+    submit:"Submit",
     sTitle:"Order Submitted!", sSub:"We'll contact you shortly. Thank you!", wa:"💬 Share on WhatsApp",
     payLabel:"Pay ₹", payLabel2:" via UPI", payNow:"📱 Pay Now",
-    needName:"Please enter your name"}
+    needName:"Please enter your name", minQtyHint:(n)=>`Minimum ${n} eggs`,
+    minQtyError:(n)=>`Please order at least ${n} eggs`}
 };
 let lang = localStorage.getItem('egg_order_lang') || 'ta';
 function applyLang(){
   const t = L[lang];
   hTitle.textContent=t.title; hSub.textContent=t.sub;
   l1.textContent=t.l1; l2.textContent=t.l2; l3.textContent=t.l3; l4.textContent=t.l4;
-  l5.textContent=t.l5; l6.textContent=t.l6; l7.textContent=t.l7;
+  l5.textContent=t.l5; l6.textContent=t.l6; l7.textContent=t.l7; l8.textContent=t.l8; l9.textContent=t.l9;
   submitBtn.textContent=t.submit; sTitle.textContent=t.sTitle; sSub.textContent=t.sSub;
   waShareBtn.textContent=t.wa; payNowBtn.textContent=t.payNow;
   document.getElementById('payLabelPrefix').textContent = t.payLabel;
   document.getElementById('payLabelSuffix').textContent = t.payLabel2;
   langBtn.textContent = lang==='ta' ? 'English':'தமிழ்';
+  minQtyHint.textContent = t.minQtyHint(minOrderQty);
 }
 function toggleLang(){ lang = lang==='ta'?'en':'ta'; localStorage.setItem('egg_order_lang',lang); applyLang(); }
-applyLang();
 f_date.value = new Date().toISOString().split('T')[0];
 
 let sellingRate = 0;
+let minOrderQty = 1;
 db.ref('settings/saleRate').once('value').then(snap=>{
   sellingRate = snap.exists() ? Number(snap.val()) : 0;
   recalcPrice();
 });
+db.ref('settings/minOrderQty').once('value').then(snap=>{
+  minOrderQty = snap.exists() ? Number(snap.val()) : 1;
+  minQtyHint.textContent = L[lang].minQtyHint(minOrderQty);
+});
+
+// Load saved customer details if present
+const savedDetails = localStorage.getItem('egg_customer_details');
+if(savedDetails){
+  try{
+    const d = JSON.parse(savedDetails);
+    f_name.value = d.name||''; f_contact.value = d.contact||'';
+    f_whatsapp.value = d.whatsapp||''; f_address.value = d.address||'';
+    f_savedetails.checked = true;
+  }catch(e){}
+}
+applyLang();
+
 function recalcPrice(){
   const qty = Number(f_qty.value||0);
   f_price.value = (qty * sellingRate).toFixed(2);
@@ -132,11 +159,21 @@ const UPI_ID = "9994869502@kotak";
 function submitOrder(){
   const name = f_name.value.trim();
   if(!name){ alert(L[lang].needName); return; }
+  const qty = Number(f_qty.value||0);
+  if(qty < minOrderQty){ alert(L[lang].minQtyError(minOrderQty)); return; }
   const data = {
     name, contact:f_contact.value.trim(), whatsapp:f_whatsapp.value.trim(),
-    qty:Number(f_qty.value||0), date:f_date.value, price:Number(f_price.value||0),
+    address:f_address.value.trim(),
+    qty, date:f_date.value, price:Number(f_price.value||0),
     note:f_note.value.trim(), status:'new', createdAt: Date.now()
   };
+  if(f_savedetails.checked){
+    localStorage.setItem('egg_customer_details', JSON.stringify({
+      name:data.name, contact:data.contact, whatsapp:data.whatsapp, address:data.address
+    }));
+  } else {
+    localStorage.removeItem('egg_customer_details');
+  }
   db.ref('orders').push(data).then(()=>{
     lastOrder = data;
     formCard.style.display='none';
@@ -153,7 +190,7 @@ function submitOrder(){
     if(EMAILJS_PUBLIC_KEY && EMAILJS_SERVICE_ID && EMAILJS_TEMPLATE_ID){
       emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
         to_email:"ramesh@sramesh.in", customer_name:data.name, contact:data.contact,
-        qty:data.qty, price:data.price, date:data.date, note:data.note
+        qty:data.qty, price:data.price, date:data.date, note:data.note, address:data.address
       }).then(()=>{ console.log('Email sent OK'); }).catch((err)=>{ alert('Email error: '+JSON.stringify(err)); });
     }
   });
