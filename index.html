@@ -275,6 +275,7 @@ nav.tabbar button .ico{font-size:19px;}
       <div class="tabs-inline" id="reportsMainTabs">
         <button class="active" id="repTabReport" onclick="switchReportsSub('report',this)">Report</button>
         <button id="repTabLedger" onclick="switchReportsSub('ledger',this)">Ledger</button>
+        <button id="repTabTrend" onclick="switchReportsSub('trend',this)">Trend</button>
         <button id="repTabStaff" onclick="switchReportsSub('staff',this)" style="display:none;">Staff Access</button>
       </div>
 
@@ -290,6 +291,19 @@ nav.tabbar button .ico{font-size:19px;}
             <button class="btn-edit" style="flex:1;padding:12px;border-radius:10px;" onclick="exportReportPDF()">📄 <span id="exportPdfBtn">Export PDF</span></button>
             <button class="btn-wa" style="flex:1;padding:12px;border-radius:10px;" onclick="exportReportExcel()">📊 <span id="exportExcelBtn">Export Excel</span></button>
           </div>
+        </div>
+      </div>
+
+      <!-- TREND SUB-TAB -->
+      <div id="repsub-trend" style="display:none;">
+        <div class="card">
+          <div style="font-size:14px;font-weight:800;color:var(--black);margin-bottom:10px;" id="trendTitle">Purchase vs Sale Rate Trend</div>
+          <canvas id="rateTrendCanvas" width="600" height="220" style="width:100%;height:220px;display:block;"></canvas>
+          <div style="display:flex;gap:14px;margin-top:10px;font-size:12px;font-weight:700;">
+            <div><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--red);margin-right:5px;"></span><span id="legendPurch">Purchase Rate</span></div>
+            <div><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--green);margin-right:5px;"></span><span id="legendSale">Sale Rate</span></div>
+          </div>
+          <div id="trendSummary" style="margin-top:14px;"></div>
         </div>
       </div>
 
@@ -397,6 +411,7 @@ const T = {
     purchPending:"Purchase Pending", salesPending:"Sales Pending", profit:"Est. Profit",
     navDash:"Dashboard", navPurchase:"Purchase", navSales:"Sales", navOrders:"Orders", navReports:"Reports",
     reportsTitle:"Reports", repFrom:"From", repTo:"To", repTab:"Report", ledgerTab:"Ledger", staffTab:"Staff Access",
+    trendTab:"Trend", trendTitle:"Purchase vs Sale Rate Trend", legendPurch:"Purchase Rate", legendSale:"Sale Rate",
     exportPdf:"Export PDF", exportExcel:"Export Excel", ledgerSupplier:"Suppliers", ledgerCustomer:"Customers",
     staffPinLabel:"Staff PIN (4 digits)", staffPinHint:"Staff login with this PIN can only add/view Sales. Leave blank to disable staff access.",
     recent:"Recent Activity", purchases:"Purchases", sales:"Sales", orders:"Orders",
@@ -426,6 +441,7 @@ const T = {
     purchPending:"கொள்முதல் நிலுவை", salesPending:"விற்பனை நிலுவை", profit:"மதிப்பிடப்பட்ட லாபம்",
     navDash:"டாஷ்போர்டு", navPurchase:"கொள்முதல்", navSales:"விற்பனை", navOrders:"ஆர்டர்கள்", navReports:"அறிக்கைகள்",
     reportsTitle:"அறிக்கைகள்", repFrom:"தொடக்கம்", repTo:"முடிவு", repTab:"அறிக்கை", ledgerTab:"லெட்ஜர்", staffTab:"பணியாளர் அணுகல்",
+    trendTab:"போக்கு", trendTitle:"கொள்முதல் vs விற்பனை விலை போக்கு", legendPurch:"கொள்முதல் விலை", legendSale:"விற்பனை விலை",
     exportPdf:"PDF ஏற்றுமதி", exportExcel:"Excel ஏற்றுமதி", ledgerSupplier:"சப்ளையர்கள்", ledgerCustomer:"வாடிக்கையாளர்கள்",
     staffPinLabel:"பணியாளர் PIN (4 இலக்கம்)", staffPinHint:"இந்த PIN மூலம் உள்நுழையும் பணியாளர் விற்பனையை மட்டும் சேர்க்க/பார்க்க முடியும். பணியாளர் அணுகலை முடக்க காலியாக விடவும்.",
     recent:"சமீபத்திய செயல்பாடு", purchases:"கொள்முதல்கள்", sales:"விற்பனைகள்", orders:"ஆர்டர்கள்",
@@ -472,6 +488,10 @@ function applyLang(){
   document.getElementById('repToLabel').textContent = t.repTo;
   document.getElementById('repTabReport').textContent = t.repTab;
   document.getElementById('repTabLedger').textContent = t.ledgerTab;
+  document.getElementById('repTabTrend').textContent = t.trendTab;
+  document.getElementById('trendTitle').textContent = t.trendTitle;
+  document.getElementById('legendPurch').textContent = t.legendPurch;
+  document.getElementById('legendSale').textContent = t.legendSale;
   document.getElementById('repTabStaff').textContent = t.staffTab;
   document.getElementById('exportPdfBtn').textContent = t.exportPdf;
   document.getElementById('exportExcelBtn').textContent = t.exportExcel;
@@ -597,6 +617,7 @@ function switchReportsSub(sub, btn){
   document.getElementById('repsub-'+sub).style.display='block';
   document.querySelectorAll('#reportsMainTabs button').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
+  if(sub==='trend') renderRateTrend();
 }
 let currentLedgerType = 'supplier';
 function switchLedgerType(type, btn){
@@ -650,6 +671,100 @@ function renderAll(){
   renderPurchases();
   renderSales();
   renderOrders();
+  renderRateTrend();
+}
+
+/* ---------- RATE TREND CHART ---------- */
+function renderRateTrend(){
+  const canvas = document.getElementById('rateTrendCanvas');
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0,0,W,H);
+
+  // aggregate avg rate per date
+  const purchByDate = {}, purchCountByDate = {};
+  Object.values(purchases).forEach(p=>{
+    if(p.disabled || !p.date) return;
+    purchByDate[p.date] = (purchByDate[p.date]||0) + Number(p.rate||0);
+    purchCountByDate[p.date] = (purchCountByDate[p.date]||0) + 1;
+  });
+  const saleByDate = {}, saleCountByDate = {};
+  Object.values(sales).forEach(s=>{
+    if(s.disabled || !s.date) return;
+    saleByDate[s.date] = (saleByDate[s.date]||0) + Number(s.rate||0);
+    saleCountByDate[s.date] = (saleCountByDate[s.date]||0) + 1;
+  });
+
+  const allDates = Array.from(new Set([...Object.keys(purchByDate), ...Object.keys(saleByDate)])).sort();
+  const dates = allDates.slice(-30); // last 30 dates with activity
+
+  const isTa = lang==='ta';
+  const summaryEl = document.getElementById('trendSummary');
+  if(dates.length===0){
+    ctx.fillStyle = '#999'; ctx.font='13px Inter'; ctx.textAlign='center';
+    ctx.fillText(isTa?'இன்னும் தரவு இல்லை':'No rate data yet', W/2, H/2);
+    if(summaryEl) summaryEl.innerHTML='';
+    return;
+  }
+
+  const purchSeries = dates.map(d=> purchByDate[d]!==undefined ? purchByDate[d]/purchCountByDate[d] : null);
+  const saleSeries = dates.map(d=> saleByDate[d]!==undefined ? saleByDate[d]/saleCountByDate[d] : null);
+  const allVals = [...purchSeries, ...saleSeries].filter(v=>v!==null);
+  const maxV = Math.max(...allVals) * 1.15;
+  const minV = Math.min(0, Math.min(...allVals) * 0.9);
+
+  const padL=36, padR=10, padT=10, padB=24;
+  const plotW = W-padL-padR, plotH = H-padT-padB;
+  const xStep = dates.length>1 ? plotW/(dates.length-1) : 0;
+  const yOf = v => padT + plotH - ((v-minV)/(maxV-minV||1))*plotH;
+  const xOf = i => padL + i*xStep;
+
+  // gridlines
+  ctx.strokeStyle='#eee'; ctx.lineWidth=1;
+  for(let g=0; g<=4; g++){
+    const y = padT + (plotH/4)*g;
+    ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(W-padR,y); ctx.stroke();
+  }
+
+  function drawLine(series, color){
+    ctx.strokeStyle=color; ctx.lineWidth=2.5; ctx.beginPath();
+    let started=false;
+    series.forEach((v,i)=>{
+      if(v===null) return;
+      const x=xOf(i), y=yOf(v);
+      if(!started){ ctx.moveTo(x,y); started=true; } else { ctx.lineTo(x,y); }
+    });
+    ctx.stroke();
+    series.forEach((v,i)=>{
+      if(v===null) return;
+      ctx.fillStyle=color;
+      ctx.beginPath(); ctx.arc(xOf(i), yOf(v), 3, 0, Math.PI*2); ctx.fill();
+    });
+  }
+  drawLine(purchSeries, '#E63946');
+  drawLine(saleSeries, '#2BB673');
+
+  // x-axis labels (first, middle, last)
+  ctx.fillStyle='#7A7A7A'; ctx.font='10px Inter'; ctx.textAlign='center';
+  [0, Math.floor(dates.length/2), dates.length-1].forEach(i=>{
+    if(i<0 || i>=dates.length) return;
+    const short = dates[i].slice(5); // MM-DD
+    ctx.fillText(short, xOf(i), H-6);
+  });
+
+  // summary text: latest rates + margin trend
+  const lastPurch = [...purchSeries].reverse().find(v=>v!==null);
+  const lastSale = [...saleSeries].reverse().find(v=>v!==null);
+  const currentMargin = (lastSale!=null && lastPurch!=null) ? (lastSale-lastPurch) : null;
+  if(summaryEl){
+    summaryEl.innerHTML = `
+      <div class="meta-grid">
+        <div><span>${isTa?'சமீபத்திய கொள்முதல் விலை':'Latest Purchase Rate'}</span>${lastPurch!=null?fmt(lastPurch):'-'}</div>
+        <div><span>${isTa?'சமீபத்திய விற்பனை விலை':'Latest Sale Rate'}</span>${lastSale!=null?fmt(lastSale):'-'}</div>
+        <div style="grid-column:1/-1;"><span>${isTa?'தற்போதைய மார்ஜின் / முட்டை':'Current Margin / Egg'}</span><b style="color:${(currentMargin||0)>=0?'var(--green)':'var(--red)'}">${currentMargin!=null?fmt(currentMargin):'-'}</b></div>
+      </div>`;
+  }
 }
 
 /* ---------- DASHBOARD / STOCK TRAY ---------- */
@@ -960,6 +1075,10 @@ function renderReportSummary(){
   });
   const profit = sAmt - pAmt;
   const isTa = lang==='ta';
+  const avgPurchRate = pQty>0 ? pAmt/pQty : 0;
+  const avgSaleRate = sQty>0 ? sAmt/sQty : 0;
+  const marginPerEgg = avgSaleRate - avgPurchRate;
+  const marginPerTray = marginPerEgg * 30;
   document.getElementById('repSummary').innerHTML = `
     <div class="meta-grid">
       <div><span>${isTa?'கொள்முதல் அளவு':'Purchase Qty'}</span>${pQty}</div>
@@ -967,6 +1086,10 @@ function renderReportSummary(){
       <div><span>${isTa?'விற்பனை அளவு':'Sales Qty'}</span>${sQty}</div>
       <div><span>${isTa?'விற்பனை தொகை':'Sales Amt'}</span>${fmt(sAmt)}</div>
       <div style="grid-column:1/-1;"><span>${isTa?'லாபம்':'Profit'}</span><b style="color:${profit>=0?'var(--green)':'var(--red)'}">${fmt(profit)}</b></div>
+      <div><span>${isTa?'சராசரி கொள்முதல் விலை':'Avg Purchase Rate'}</span>${fmt(avgPurchRate)}</div>
+      <div><span>${isTa?'சராசரி விற்பனை விலை':'Avg Sale Rate'}</span>${fmt(avgSaleRate)}</div>
+      <div><span>${isTa?'முட்டைக்கு லாபம்':'Profit / Egg'}</span><b style="color:${marginPerEgg>=0?'var(--green)':'var(--red)'}">${fmt(marginPerEgg)}</b></div>
+      <div><span>${isTa?'ட்ரேக்கு லாபம் (30)':'Profit / Tray (30)'}</span><b style="color:${marginPerTray>=0?'var(--green)':'var(--red)'}">${fmt(marginPerTray)}</b></div>
     </div>`;
 }
 document.addEventListener('change', e=>{
