@@ -53,7 +53,9 @@ header p{color:#bbb;font-size:12px;margin-top:4px;position:relative;z-index:2;}
     <div class="field"><label id="l4">Quantity</label><input id="f_qty" type="number" oninput="recalcPrice()"><small id="minQtyHint" style="color:var(--gray-dark);font-size:11px;"></small></div>
     <div class="field"><label id="l5">Date</label><input id="f_date" type="date"></div>
   </div>
-  <div class="field"><label id="l6">Price (₹)</label><input id="f_price" type="number" step="0.01" readonly style="background:#eee;font-weight:800;"></div>
+  <div class="field"><label id="l6">Price (₹)</label><input id="f_price" type="number" step="0.01" readonly style="background:#eee;font-weight:800;">
+    <div id="customRateNote" style="display:none;color:var(--green);font-size:11px;margin-top:4px;font-weight:700;"></div>
+  </div>
   <div class="field"><label id="l7">Note</label><textarea id="f_note" rows="2"></textarea></div>
   <div class="field" style="display:flex;align-items:center;gap:8px;">
     <input type="checkbox" id="f_savedetails" style="width:18px;height:18px;">
@@ -101,14 +103,16 @@ const L = {
     sTitle:"ஆர்டர் சமர்ப்பிக்கப்பட்டது!", sSub:"விரைவில் தொடர்பு கொள்வோம். நன்றி!", wa:"💬 வாட்ஸ்அப்பில் பகிரவும்",
     payLabel:"UPI மூலம் ₹", payLabel2:" செலுத்தவும்", payNow:"📱 இப்போது செலுத்தவும்",
     needName:"பெயரை உள்ளிடவும்", minQtyHint:(n)=>`குறைந்தபட்சம் ${n} முட்டைகள்`,
-    minQtyError:(n)=>`குறைந்தபட்சம் ${n} முட்டைகள் ஆர்டர் செய்யவும்`},
+    minQtyError:(n)=>`குறைந்தபட்சம் ${n} முட்டைகள் ஆர்டர் செய்யவும்`,
+    customRateNote:(r)=>`✓ உங்களுக்கான சிறப்பு விலை: ₹${r}/முட்டை`},
   en:{title:"🥚 Order Form", sub:"Egg Order Form", l1:"Name", l2:"Contact Number", l3:"WhatsApp Number",
     l4:"Quantity", l5:"Date", l6:"Price (₹)", l7:"Note", l8:"Delivery Address", l9:"Save my details for next time",
     submit:"Submit",
     sTitle:"Order Submitted!", sSub:"We'll contact you shortly. Thank you!", wa:"💬 Share on WhatsApp",
     payLabel:"Pay ₹", payLabel2:" via UPI", payNow:"📱 Pay Now",
     needName:"Please enter your name", minQtyHint:(n)=>`Minimum ${n} eggs`,
-    minQtyError:(n)=>`Please order at least ${n} eggs`}
+    minQtyError:(n)=>`Please order at least ${n} eggs`,
+    customRateNote:(r)=>`✓ Your special rate: ₹${r}/egg`}
 };
 let lang = localStorage.getItem('egg_order_lang') || 'ta';
 function applyLang(){
@@ -122,20 +126,47 @@ function applyLang(){
   document.getElementById('payLabelSuffix').textContent = t.payLabel2;
   langBtn.textContent = lang==='ta' ? 'English':'தமிழ்';
   minQtyHint.textContent = t.minQtyHint(minOrderQty);
+  updateCustomRateNote();
 }
 function toggleLang(){ lang = lang==='ta'?'en':'ta'; localStorage.setItem('egg_order_lang',lang); applyLang(); }
 f_date.value = new Date().toISOString().split('T')[0];
 
 let sellingRate = 0;
 let minOrderQty = 1;
-db.ref('settings/saleRate').once('value').then(snap=>{
-  sellingRate = snap.exists() ? Number(snap.val()) : 0;
+let isCustomRate = false;
+const urlParams = new URLSearchParams(location.search);
+const customerKey = (urlParams.get('c')||'').replace(/\D/g,'');
+
+Promise.all([
+  db.ref('settings/saleRate').once('value'),
+  customerKey ? db.ref('customerRates/'+customerKey).once('value') : Promise.resolve(null)
+]).then(([generalSnap, custSnap])=>{
+  const generalRate = generalSnap.exists() ? Number(generalSnap.val()) : 0;
+  const customRate = (custSnap && custSnap.exists()) ? Number(custSnap.val()) : null;
+  if(customRate!=null && customRate>0){
+    sellingRate = customRate;
+    isCustomRate = true;
+  } else {
+    sellingRate = generalRate;
+    isCustomRate = false;
+  }
   recalcPrice();
+  updateCustomRateNote();
 });
 db.ref('settings/minOrderQty').once('value').then(snap=>{
   minOrderQty = snap.exists() ? Number(snap.val()) : 1;
   minQtyHint.textContent = L[lang].minQtyHint(minOrderQty);
 });
+function updateCustomRateNote(){
+  const el = document.getElementById('customRateNote');
+  if(!el) return;
+  if(isCustomRate){
+    el.style.display='block';
+    el.textContent = L[lang].customRateNote(sellingRate);
+  } else {
+    el.style.display='none';
+  }
+}
 
 // Load saved customer details if present
 const savedDetails = localStorage.getItem('egg_customer_details');
@@ -164,7 +195,7 @@ function submitOrder(){
   const data = {
     name, contact:f_contact.value.trim(), whatsapp:f_whatsapp.value.trim(),
     address:f_address.value.trim(),
-    qty, date:f_date.value, price:Number(f_price.value||0),
+    qty, date:f_date.value, price:Number(f_price.value||0), rate:sellingRate, customRate:isCustomRate,
     note:f_note.value.trim(), status:'new', createdAt: Date.now()
   };
   if(f_savedetails.checked){
