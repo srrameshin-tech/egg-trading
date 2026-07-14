@@ -368,7 +368,14 @@ nav.tabbar button .ico{font-size:19px;}
     <button class="close-x" onclick="closeModal('salesOverlay')">✕</button>
     <h3 id="salesFormTitle">Add Sale</h3>
     <div class="field"><label id="sf_l1">Customer Name</label><input id="sf_name" list="customerList"><datalist id="customerList"></datalist></div>
-    <div class="field"><label id="sf_l2">Contact Number</label><input id="sf_contact" type="tel" maxlength="10"></div>
+    <div class="field"><label id="sf_l2">Contact Number</label><input id="sf_contact" type="tel" maxlength="10" onblur="lookupCustomerRateFromContact()"></div>
+    <div class="field" style="display:flex;gap:8px;align-items:flex-end;">
+      <div style="flex:1;">
+        <label id="sf_rateLabel" style="font-size:13px;font-weight:800;color:var(--black);display:block;margin-bottom:5px;">Customer's Fixed Rate (optional)</label>
+        <input id="sf_customrate" type="number" step="0.01" placeholder="₹/egg" style="width:100%;padding:12px;border-radius:10px;border:1.5px solid #ddd;font-size:14px;background:var(--gray);">
+      </div>
+      <button type="button" class="btn-edit" style="padding:12px 14px;border-radius:10px;white-space:nowrap;" onclick="copyLinkFromForm()">🔗 <span id="sf_linkBtn">Link</span></button>
+    </div>
     <div class="two-col">
       <div class="field"><label id="sf_l3">Sales Date</label><input id="sf_date" type="date"></div>
       <div class="field"><label id="sf_l4">Quantity</label><input id="sf_qty" type="number" oninput="calcSalesPending()"></div>
@@ -423,6 +430,7 @@ const T = {
     sl1:"Customer Name", sl2:"Contact Number", sl3:"Sales Date", sl4:"Quantity",
     sl4b:"Sale Rate (₹/unit)", sl5:"Paid Amount", sl6:"Pending Amount (auto)", sl7:"Notes (optional)",
     saveSale:"Save Sale", logout:"Exit", link:"Link",
+    sfRateLabel:"Customer's Fixed Rate (optional)", sfLinkBtn:"Link",
     edit:"Edit", wa:"WhatsApp", del:"Delete", enable:"Enable", disable:"Disable",
     emptyPurchase:"No purchases yet. Tap + to add.",
     emptySales:"No sales yet. Tap + to add.",
@@ -453,6 +461,7 @@ const T = {
     sl1:"வாடிக்கையாளர் பெயர்", sl2:"தொடர்பு எண்", sl3:"விற்பனை தேதி", sl4:"அளவு",
     sl4b:"விற்பனை விலை (₹/யூனிட்)", sl5:"செலுத்திய தொகை", sl6:"நிலுவைத் தொகை (auto)", sl7:"குறிப்பு (விருப்பம்)",
     saveSale:"விற்பனையை சேமி", logout:"வெளியேறு", link:"லிங்க்",
+    sfRateLabel:"வாடிக்கையாளர் நிலையான விலை (விருப்பம்)", sfLinkBtn:"லிங்க்",
     edit:"திருத்து", wa:"வாட்ஸ்அப்", del:"நீக்கு", enable:"இயக்கு", disable:"முடக்கு",
     emptyPurchase:"இன்னும் கொள்முதல் இல்லை. + அழுத்தவும்.",
     emptySales:"இன்னும் விற்பனை இல்லை. + அழுத்தவும்.",
@@ -524,6 +533,7 @@ function applyLang(){
   document.getElementById('sf_l3').textContent=t.sl3; document.getElementById('sf_l4').textContent=t.sl4;
   document.getElementById('sf_l4b').textContent=t.sl4b; document.getElementById('sf_l5').textContent=t.sl5;
   document.getElementById('sf_l6').textContent=t.sl6; document.getElementById('sf_l7').textContent=t.sl7;
+  document.getElementById('sf_rateLabel').textContent=t.sfRateLabel; document.getElementById('sf_linkBtn').textContent=t.sfLinkBtn;
   document.getElementById('sf_save').textContent=t.saveSale; document.getElementById('sf_cancel').textContent=t.cancel;
   renderAll();
   renderReportSummary();
@@ -959,11 +969,24 @@ function openSalesModal(id){
     const s = sales[id];
     sf_name.value=s.customerName; sf_contact.value=s.contact||''; sf_date.value=s.date;
     sf_qty.value=s.qty; sf_rate.value=s.rate||0; sf_paid.value=s.paid||0; sf_pending.value=s.pending||0; sf_note.value=s.note||'';
+    const digits=(s.contact||'').replace(/\D/g,'');
+    sf_customrate.value = digits ? (customerRates[digits]||'') : '';
   } else {
-    ['sf_name','sf_contact','sf_qty','sf_rate','sf_paid','sf_pending','sf_note'].forEach(x=>document.getElementById(x).value='');
+    ['sf_name','sf_contact','sf_qty','sf_rate','sf_paid','sf_pending','sf_note','sf_customrate'].forEach(x=>document.getElementById(x).value='');
     sf_date.value = new Date().toISOString().split('T')[0];
   }
   document.getElementById('salesOverlay').classList.add('show');
+}
+function lookupCustomerRateFromContact(){
+  const digits = sf_contact.value.replace(/\D/g,'');
+  if(digits.length>=10 && !sf_customrate.value){
+    sf_customrate.value = customerRates[digits] || '';
+  }
+}
+function copyLinkFromForm(){
+  const digits = sf_contact.value.replace(/\D/g,'');
+  if(!digits){ alert(lang==='ta'?'முதலில் தொடர்பு எண் உள்ளிடவும்':'Enter contact number first'); return; }
+  copyCustomerLink(digits);
 }
 function editSale(id){ openSalesModal(id); }
 function calcSalesPending(){
@@ -979,6 +1002,12 @@ function saveSale(){
     rate:Number(sf_rate.value||0), paid:Number(sf_paid.value||0), pending:Number(sf_pending.value||0),
     note:sf_note.value.trim(), disabled: editingSaleId ? (sales[editingSaleId].disabled||false):false
   };
+  const digits = sf_contact.value.replace(/\D/g,'');
+  if(digits){
+    const customRateVal = Number(sf_customrate.value||0);
+    if(customRateVal>0){ db.ref('customerRates/'+digits).set(customRateVal); }
+    else { db.ref('customerRates/'+digits).remove(); }
+  }
   const ref = editingSaleId ? db.ref('sales/'+editingSaleId) : db.ref('sales').push();
   ref.set(data).then(()=>closeModal('salesOverlay'));
 }
