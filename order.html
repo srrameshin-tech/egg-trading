@@ -139,10 +139,13 @@ const customerKey = (urlParams.get('c')||'').replace(/\D/g,'');
 
 Promise.all([
   db.ref('settings/saleRate').once('value'),
+  customerKey ? db.ref('customerMaster/'+customerKey+'/rate').once('value') : Promise.resolve(null),
   customerKey ? db.ref('customerRates/'+customerKey).once('value') : Promise.resolve(null)
-]).then(([generalSnap, custSnap])=>{
+]).then(([generalSnap, masterSnap, legacySnap])=>{
   const generalRate = generalSnap.exists() ? Number(generalSnap.val()) : 0;
-  const customRate = (custSnap && custSnap.exists()) ? Number(custSnap.val()) : null;
+  const masterRate = (masterSnap && masterSnap.exists()) ? Number(masterSnap.val()) : null;
+  const legacyRate = (legacySnap && legacySnap.exists()) ? Number(legacySnap.val()) : null;
+  const customRate = (masterRate!=null && masterRate>0) ? masterRate : legacyRate;
   if(customRate!=null && customRate>0){
     sellingRate = customRate;
     isCustomRate = true;
