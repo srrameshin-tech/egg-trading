@@ -313,6 +313,7 @@ nav.tabbar button .ico{font-size:19px;}
           <button class="active" id="ledgerTabSupplier" onclick="switchLedgerType('supplier',this)">Suppliers</button>
           <button id="ledgerTabCustomer" onclick="switchLedgerType('customer',this)">Customers</button>
         </div>
+        <button id="addCustomerBtn" class="btn-primary" style="display:none;width:100%;margin-bottom:12px;padding:12px;border-radius:10px;" onclick="openCustomerMasterModal()">➕ <span id="addCustomerBtnTxt">Add Customer</span></button>
         <div id="ledgerList"></div>
       </div>
 
@@ -367,7 +368,7 @@ nav.tabbar button .ico{font-size:19px;}
   <div class="sheet">
     <button class="close-x" onclick="closeModal('salesOverlay')">✕</button>
     <h3 id="salesFormTitle">Add Sale</h3>
-    <div class="field"><label id="sf_l1">Customer Name</label><input id="sf_name" list="customerList"><datalist id="customerList"></datalist></div>
+    <div class="field"><label id="sf_l1">Customer Name</label><input id="sf_name" list="customerList" oninput="lookupCustomerFromName()"><datalist id="customerList"></datalist></div>
     <div class="field"><label id="sf_l2">Contact Number</label><input id="sf_contact" type="tel" maxlength="10" onblur="lookupCustomerRateFromContact()"></div>
     <div class="field" style="display:flex;gap:8px;align-items:flex-end;">
       <div style="flex:1;">
@@ -388,6 +389,20 @@ nav.tabbar button .ico{font-size:19px;}
     <div class="field"><label id="sf_l7">Notes (optional)</label><textarea id="sf_note" rows="2"></textarea></div>
     <button class="btn-primary" onclick="saveSale()" id="sf_save">Save Sale</button>
     <button class="btn-secondary" onclick="closeModal('salesOverlay')" id="sf_cancel">Cancel</button>
+  </div>
+</div>
+
+<!-- ================= MODAL: CUSTOMER MASTER FORM ================= -->
+<div class="overlay" id="customerMasterOverlay">
+  <div class="sheet">
+    <button class="close-x" onclick="closeModal('customerMasterOverlay')">✕</button>
+    <h3 id="cmFormTitle">Add Customer</h3>
+    <div class="field"><label id="cm_l1">Customer Name</label><input id="cm_name"></div>
+    <div class="field"><label id="cm_l2">Contact Number</label><input id="cm_contact" type="tel" maxlength="10"></div>
+    <div class="field"><label id="cm_l3">Fixed Rate (₹/egg, optional)</label><input id="cm_rate" type="number" step="0.01" placeholder="₹/egg"></div>
+    <button class="btn-primary" onclick="saveCustomerMaster()" id="cm_save">Save Customer</button>
+    <button class="btn-secondary" onclick="closeModal('customerMasterOverlay')" id="cm_cancel">Cancel</button>
+    <button class="btn-del" style="width:100%;margin-top:10px;padding:12px;border-radius:10px;display:none;" id="cm_delete" onclick="deleteCustomerMaster()">🗑️ <span id="cm_deleteTxt">Delete Customer</span></button>
   </div>
 </div>
 
@@ -431,6 +446,8 @@ const T = {
     sl4b:"Sale Rate (₹/unit)", sl5:"Paid Amount", sl6:"Pending Amount (auto)", sl7:"Notes (optional)",
     saveSale:"Save Sale", logout:"Exit", link:"Link",
     sfRateLabel:"Customer's Fixed Rate (optional)", sfLinkBtn:"Link",
+    addCustomerBtn:"Add Customer", cmNameLabel:"Customer Name", cmContactLabel:"Contact Number",
+    cmRateLabel:"Fixed Rate (₹/egg, optional)", cmSave:"Save Customer", cmDelete:"Delete Customer",
     edit:"Edit", wa:"WhatsApp", del:"Delete", enable:"Enable", disable:"Disable",
     emptyPurchase:"No purchases yet. Tap + to add.",
     emptySales:"No sales yet. Tap + to add.",
@@ -462,6 +479,8 @@ const T = {
     sl4b:"விற்பனை விலை (₹/யூனிட்)", sl5:"செலுத்திய தொகை", sl6:"நிலுவைத் தொகை (auto)", sl7:"குறிப்பு (விருப்பம்)",
     saveSale:"விற்பனையை சேமி", logout:"வெளியேறு", link:"லிங்க்",
     sfRateLabel:"வாடிக்கையாளர் நிலையான விலை (விருப்பம்)", sfLinkBtn:"லிங்க்",
+    addCustomerBtn:"வாடிக்கையாளர் சேர்", cmNameLabel:"வாடிக்கையாளர் பெயர்", cmContactLabel:"தொடர்பு எண்",
+    cmRateLabel:"நிலையான விலை (₹/முட்டை, விருப்பம்)", cmSave:"வாடிக்கையாளரை சேமி", cmDelete:"வாடிக்கையாளரை நீக்கு",
     edit:"திருத்து", wa:"வாட்ஸ்அப்", del:"நீக்கு", enable:"இயக்கு", disable:"முடக்கு",
     emptyPurchase:"இன்னும் கொள்முதல் இல்லை. + அழுத்தவும்.",
     emptySales:"இன்னும் விற்பனை இல்லை. + அழுத்தவும்.",
@@ -534,6 +553,13 @@ function applyLang(){
   document.getElementById('sf_l4b').textContent=t.sl4b; document.getElementById('sf_l5').textContent=t.sl5;
   document.getElementById('sf_l6').textContent=t.sl6; document.getElementById('sf_l7').textContent=t.sl7;
   document.getElementById('sf_rateLabel').textContent=t.sfRateLabel; document.getElementById('sf_linkBtn').textContent=t.sfLinkBtn;
+  document.getElementById('addCustomerBtnTxt').textContent = t.addCustomerBtn;
+  document.getElementById('cm_l1').textContent = t.cmNameLabel;
+  document.getElementById('cm_l2').textContent = t.cmContactLabel;
+  document.getElementById('cm_l3').textContent = t.cmRateLabel;
+  document.getElementById('cm_save').textContent = t.cmSave;
+  document.getElementById('cm_cancel').textContent = t.cancel;
+  document.getElementById('cm_deleteTxt').textContent = t.cmDelete;
   document.getElementById('sf_save').textContent=t.saveSale; document.getElementById('sf_cancel').textContent=t.cancel;
   renderAll();
   renderReportSummary();
@@ -607,7 +633,8 @@ function applyRoleRestrictions(){
     switchTab('sales', document.querySelector("nav.tabbar button[onclick*=\"'sales'\"]"));
   }
 }
-let purchases={}, sales={}, orders={}, customerRates={};
+let purchases={}, sales={}, orders={}, customerRates={}, customerMaster={};
+let editingCustomerDigits = null;
 
 /* ============================================================
    TAB NAV
@@ -634,6 +661,9 @@ function switchLedgerType(type, btn){
   currentLedgerType = type;
   document.querySelectorAll('#repsub-ledger .tabs-inline button').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
+  document.getElementById('addCustomerBtn').style.display = (type==='customer') ? 'flex' : 'none';
+  document.getElementById('addCustomerBtn').style.alignItems = 'center';
+  document.getElementById('addCustomerBtn').style.justifyContent = 'center';
   renderLedger();
 }
 
@@ -646,6 +676,7 @@ function listenData(){
   db.ref('sales').on('value', snap=>{ sales = snap.val()||{}; renderAll(); });
   db.ref('orders').on('value', snap=>{ orders = snap.val()||{}; renderAll(); });
   db.ref('customerRates').on('value', snap=>{ customerRates = snap.val()||{}; renderLedger(); });
+  db.ref('customerMaster').on('value', snap=>{ customerMaster = snap.val()||{}; renderLedger(); renderSales(); });
   db.ref('settings/saleRate').on('value', snap=>{
     const rate = snap.exists() ? snap.val() : '';
     const el = document.getElementById('defaultRateInput');
@@ -930,8 +961,8 @@ function renderSales(){
   const list = document.getElementById('salesList');
   const entries = Object.entries(sales).sort((a,b)=>(b[1].date||'').localeCompare(a[1].date||''));
   if(entries.length===0){ list.innerHTML = `<div class="empty"><span class="ico">💰</span>${T[lang].emptySales}</div>`; return; }
-  const customers = [...new Set(Object.values(sales).map(s=>s.customerName))];
-  document.getElementById('customerList').innerHTML = customers.map(c=>`<option value="${c}">`).join('');
+  const customerNames = [...new Set([...Object.values(sales).map(s=>s.customerName), ...Object.values(customerMaster).map(c=>c.name)])];
+  document.getElementById('customerList').innerHTML = customerNames.map(c=>`<option value="${c}">`).join('');
 
   list.innerHTML = entries.map(([id,s])=>{
     const isPending = Number(s.pending||0) > 0;
@@ -970,17 +1001,33 @@ function openSalesModal(id){
     sf_name.value=s.customerName; sf_contact.value=s.contact||''; sf_date.value=s.date;
     sf_qty.value=s.qty; sf_rate.value=s.rate||0; sf_paid.value=s.paid||0; sf_pending.value=s.pending||0; sf_note.value=s.note||'';
     const digits=(s.contact||'').replace(/\D/g,'');
-    sf_customrate.value = digits ? (customerRates[digits]||'') : '';
+    sf_customrate.value = digits ? getCustomerRate(digits) : '';
   } else {
     ['sf_name','sf_contact','sf_qty','sf_rate','sf_paid','sf_pending','sf_note','sf_customrate'].forEach(x=>document.getElementById(x).value='');
     sf_date.value = new Date().toISOString().split('T')[0];
   }
   document.getElementById('salesOverlay').classList.add('show');
 }
+function getCustomerRate(digits){
+  if(customerMaster[digits] && customerMaster[digits].rate) return customerMaster[digits].rate;
+  if(customerRates[digits]) return customerRates[digits];
+  return '';
+}
 function lookupCustomerRateFromContact(){
   const digits = sf_contact.value.replace(/\D/g,'');
-  if(digits.length>=10 && !sf_customrate.value){
-    sf_customrate.value = customerRates[digits] || '';
+  if(digits.length>=10){
+    if(!sf_customrate.value) sf_customrate.value = getCustomerRate(digits);
+    if(!sf_name.value && customerMaster[digits]) sf_name.value = customerMaster[digits].name;
+  }
+}
+function lookupCustomerFromName(){
+  const name = sf_name.value.trim();
+  if(!name) return;
+  const match = Object.entries(customerMaster).find(([digits,c])=>c.name===name);
+  if(match){
+    const [digits,c] = match;
+    if(!sf_contact.value) sf_contact.value = c.contact||digits;
+    if(!sf_customrate.value && c.rate) sf_customrate.value = c.rate;
   }
 }
 function copyLinkFromForm(){
@@ -1004,9 +1051,10 @@ function saveSale(){
   };
   const digits = sf_contact.value.replace(/\D/g,'');
   if(digits){
+    const masterData = { name, contact: sf_contact.value.trim() };
     const customRateVal = Number(sf_customrate.value||0);
-    if(customRateVal>0){ db.ref('customerRates/'+digits).set(customRateVal); }
-    else { db.ref('customerRates/'+digits).remove(); }
+    if(customRateVal>0) masterData.rate = customRateVal;
+    db.ref('customerMaster/'+digits).update(masterData);
   }
   const ref = editingSaleId ? db.ref('sales/'+editingSaleId) : db.ref('sales').push();
   ref.set(data).then(()=>closeModal('salesOverlay'));
@@ -1182,19 +1230,31 @@ function renderLedger(){
       map[key].qty += Number(s.qty||0);
       if(!map[key].contact && s.contact) map[key].contact = s.contact;
     });
+    Object.values(customerMaster).forEach(c=>{
+      const key = c.name;
+      if(!map[key]) map[key] = {total:0, paid:0, pending:0, qty:0, contact:c.contact||''};
+      else if(!map[key].contact) map[key].contact = c.contact||'';
+    });
   }
   const entries = Object.entries(map).sort((a,b)=>b[1].pending-a[1].pending);
   if(entries.length===0){ list.innerHTML = `<div class="empty"><span class="ico">📒</span>${isTa?'தரவு இல்லை':'No data'}</div>`; return; }
   list.innerHTML = entries.map(([name,d])=>{
     const custRateRow = (currentLedgerType==='customer') ? (()=>{
       const digits = (d.contact||'').replace(/\D/g,'');
-      if(!digits) return `<div style="margin-top:10px;font-size:11px;color:var(--gray-dark);">${isTa?'தொடர்பு எண் இல்லை - தனி விலை/லிங்க் அமைக்க முடியாது':'No contact number - cannot set custom rate/link'}</div>`;
-      const currentRate = customerRates[digits] || '';
+      const safeName = name.replace(/'/g,"\\'");
+      const safeContact = (d.contact||'').replace(/'/g,"\\'");
+      if(!digits) return `
+        <div style="margin-top:10px;display:flex;gap:8px;align-items:center;">
+          <div style="flex:1;font-size:11px;color:var(--gray-dark);">${isTa?'தொடர்பு எண் இல்லை':'No contact number'}</div>
+          <button class="btn-edit" style="padding:8px 10px;border-radius:8px;" onclick="openCustomerMasterModal('','${safeName}','')">✏️</button>
+        </div>`;
+      const currentRate = getCustomerRate(digits);
       return `
         <div style="margin-top:10px;display:flex;gap:8px;align-items:center;">
           <input type="number" step="0.01" placeholder="${isTa?'இந்த வாடிக்கையாளருக்கான விலை':'Rate for this customer'}" value="${currentRate}"
             style="flex:1;padding:8px 10px;border-radius:8px;border:1.5px solid #ddd;font-size:13px;"
-            onchange="saveCustomerRate('${digits}', this.value)">
+            onchange="saveCustomerRate('${digits}', this.value, '${safeName}', '${safeContact}')">
+          <button class="btn-edit" style="padding:8px 10px;border-radius:8px;" onclick="openCustomerMasterModal('${digits}','${safeName}','${safeContact}')">✏️</button>
           <button class="btn-edit" style="padding:8px 12px;border-radius:8px;white-space:nowrap;" onclick="copyCustomerLink('${digits}')">🔗 ${isTa?'லிங்க்':'Link'}</button>
         </div>`;
     })() : '';
@@ -1214,14 +1274,54 @@ function renderLedger(){
     </div>`;
   }).join('');
 }
-function saveCustomerRate(digits, val){
+function saveCustomerRate(digits, val, name, contact){
   const rate = Number(val||0);
-  if(rate>0){ db.ref('customerRates/'+digits).set(rate); }
-  else { db.ref('customerRates/'+digits).remove(); }
+  const data = {};
+  if(name) data.name = name;
+  if(contact) data.contact = contact;
+  if(rate>0) data.rate = rate;
+  else data.rate = null;
+  db.ref('customerMaster/'+digits).update(data);
 }
 function copyCustomerLink(digits){
   const url = location.origin + location.pathname.replace('index.html','') + 'order.html?c=' + digits;
   navigator.clipboard.writeText(url).then(()=>alert(T[lang].linkCopied));
+}
+function openCustomerMasterModal(digits, fallbackName, fallbackContact){
+  editingCustomerDigits = digits || null;
+  const existing = digits ? customerMaster[digits] : null;
+  if(digits){
+    cm_name.value = existing ? existing.name : (fallbackName||'');
+    cm_contact.value = existing ? existing.contact : (fallbackContact||digits);
+    cm_rate.value = (existing && existing.rate) ? existing.rate : '';
+    cm_delete.style.display = existing ? 'block' : 'none';
+    document.getElementById('cmFormTitle').textContent = lang==='ta'?'வாடிக்கையாளர் திருத்து':'Edit Customer';
+  } else {
+    cm_name.value = fallbackName||''; cm_contact.value=''; cm_rate.value='';
+    cm_delete.style.display='none';
+    document.getElementById('cmFormTitle').textContent = lang==='ta'?'வாடிக்கையாளர் சேர்':'Add Customer';
+  }
+  document.getElementById('customerMasterOverlay').classList.add('show');
+}
+function saveCustomerMaster(){
+  const name = cm_name.value.trim();
+  const digits = cm_contact.value.replace(/\D/g,'');
+  if(!name){ alert(lang==='ta'?'பெயரை உள்ளிடவும்':'Enter name'); return; }
+  if(!digits){ alert(lang==='ta'?'தொடர்பு எண்ணை உள்ளிடவும்':'Enter contact number'); return; }
+  const rate = Number(cm_rate.value||0);
+  const data = { name, contact: cm_contact.value.trim() };
+  if(rate>0) data.rate = rate;
+  const ops = [];
+  if(editingCustomerDigits && editingCustomerDigits !== digits){
+    ops.push(db.ref('customerMaster/'+editingCustomerDigits).remove());
+  }
+  ops.push(db.ref('customerMaster/'+digits).set(data));
+  Promise.all(ops).then(()=>closeModal('customerMasterOverlay'));
+}
+function deleteCustomerMaster(){
+  if(!editingCustomerDigits) return;
+  if(!confirm(T[lang].confirmDel)) return;
+  db.ref('customerMaster/'+editingCustomerDigits).remove().then(()=>closeModal('customerMasterOverlay'));
 }
 
 /* ---------- STAFF PIN ---------- */
