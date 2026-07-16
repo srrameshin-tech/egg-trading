@@ -575,6 +575,18 @@ function toggleLang(){
    LOGIN
 =============================================================*/
 const DEFAULT_PIN = "1973";
+// PIN hashing (SHA-256) — auto-migrates legacy plaintext PINs on next successful use
+async function sha256Hex(str){
+  const enc = new TextEncoder().encode(str);
+  const buf = await crypto.subtle.digest('SHA-256', enc);
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+function isHashFormat(str){ return typeof str==='string' && /^[a-f0-9]{64}$/i.test(str); }
+async function verifyPin(entered, stored){
+  if(!stored) return false;
+  if(isHashFormat(stored)) return (await sha256Hex(entered))===stored;
+  return entered===stored;
+}
 const pinInputs = document.querySelectorAll('.pinDigit');
 pinInputs.forEach((inp,i)=>{
   inp.addEventListener('input',()=>{
@@ -587,14 +599,15 @@ function tryLogin(){
   Promise.all([
     db.ref('settings/pin').once('value'),
     db.ref('settings/staffPin').once('value')
-  ]).then(([adminSnap, staffSnap])=>{
+  ]).then(async ([adminSnap, staffSnap])=>{
     const adminPin = adminSnap.exists() ? adminSnap.val() : DEFAULT_PIN;
     const staffPin = staffSnap.exists() ? staffSnap.val() : '';
-    if(pin === adminPin){
+    if(await verifyPin(pin, adminPin)){
+      if(!isHashFormat(adminPin)) db.ref('settings/pin').set(await sha256Hex(pin));
       sessionStorage.setItem('egg_auth','1');
       sessionStorage.setItem('egg_role','admin');
       showApp();
-    } else if(staffPin && pin === staffPin){
+    } else if(staffPin && await verifyPin(pin, staffPin)){
       sessionStorage.setItem('egg_auth','1');
       sessionStorage.setItem('egg_role','staff');
       showApp();
